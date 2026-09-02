@@ -23,7 +23,7 @@ Route (app)                              Size     First Load JS
 ├ ƒ /api/seed                            0 B                0 B
 ├ ○ /narrative-map                       108 kB          383 kB
 ├ ƒ /project/[id]                        9.48 kB         292 kB
-└ ○ /replay-lab                          44.4 kB         326 kB
+└ ○ /replay-lab                          44.4 kB         327 kB
 + First Load JS shared by all            87.9 kB
   ├ chunks/117-fcd9cdd6a5d160da.js       31.9 kB
   ├ chunks/fd9d1056-4713906b7fc873f6.js  53.6 kB

@@ -1,10 +1,11 @@
 
-Running 6 tests using 1 worker
+Running 7 tests using 1 worker
 
-[1/6] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › / renders with synthetic label and boundary
-[2/6] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › /narrative-map renders with synthetic label and boundary
-[3/6] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › /project/proj-neural renders with synthetic label and boundary
-[4/6] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › /replay-lab renders with synthetic label and boundary
-[5/6] [chromium] › e2e/star.spec.ts:19:7 › four-page render + safety labels › star desk shows the decision queue after hydration
-[6/6] [chromium] › e2e/star.spec.ts:27:7 › four-page render + safety labels › replay lab evaluates a point-in-time cutoff
-  6 passed (7.6s)
+[1/7] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › / renders with synthetic label and boundary
+[2/7] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › /narrative-map renders with synthetic label and boundary
+[3/7] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › /project/proj-neural renders with synthetic label and boundary
+[4/7] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › /replay-lab renders with synthetic label and boundary
+[5/7] [chromium] › e2e/star.spec.ts:19:7 › four-page render + safety labels › star desk shows the decision queue after hydration
+[6/7] [chromium] › e2e/star.spec.ts:27:7 › four-page render + safety labels › replay lab evaluates a point-in-time cutoff
+[7/7] [chromium] › e2e/star.spec.ts:40:7 › four-page render + safety labels › P0-C2: init failure degrades explicitly, no gates/scores/stale data, retry is safe
+  7 passed (10.9s)
