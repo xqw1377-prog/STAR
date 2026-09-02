@@ -1,0 +1,21 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.11 /Users/xinquanwang/STAR sol/star-web
+
+ ✓ lib/domain/no-star-import.test.ts (1 test) 14ms
+ ✓ lib/data/base58.test.ts (4 tests) 3ms
+ ✓ lib/domain/interpret.test.ts (7 tests) 3ms
+ ✓ lib/data/contract.test.ts (11 tests) 3ms
+ ✓ lib/data/parsers.test.ts (15 tests) 5ms
+ ✓ lib/domain/temporal.test.ts (7 tests) 9ms
+ ✓ lib/domain/gates.test.ts (15 tests) 10ms
+ ✓ lib/data/rpc-smoke.test.ts (7 tests | 6 skipped) 2ms
+ ✓ lib/engine.test.ts (11 tests) 1282ms
+
+ Test Files  9 passed (9)
+      Tests  72 passed | 6 skipped (78)
+   Start at  14:48:18
+   Duration  1.49s (transform 681ms, setup 0ms, import 843ms, tests 1.33s, environment 0ms)
+

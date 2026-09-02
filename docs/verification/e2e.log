@@ -1,0 +1,10 @@
+
+Running 6 tests using 1 worker
+
+[1/6] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › / renders with synthetic label and boundary
+[2/6] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › /narrative-map renders with synthetic label and boundary
+[3/6] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › /project/proj-neural renders with synthetic label and boundary
+[4/6] [chromium] › e2e/star.spec.ts:11:9 › four-page render + safety labels › /replay-lab renders with synthetic label and boundary
+[5/6] [chromium] › e2e/star.spec.ts:19:7 › four-page render + safety labels › star desk shows the decision queue after hydration
+[6/6] [chromium] › e2e/star.spec.ts:27:7 › four-page render + safety labels › replay lab evaluates a point-in-time cutoff
+  6 passed (6.4s)
