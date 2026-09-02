@@ -1,16 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
+    // Real node module in the RSC/server layer (bundling breaks PGlite's
+    // new URL(..., import.meta.url) asset resolution). The browser idb path
+    // is severed from SSR via app/providers-ssr.tsx (dynamic, ssr:false).
     serverComponentsExternalPackages: ['@electric-sql/pglite'],
-  },
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      // PGlite's ESM uses new URL(..., import.meta.url); webpack's rewrite
-      // yields a WHATWG polyfill URL that Node fs rejects. Keep it a real
-      // node module on the server (the browser idb path stays bundled).
-      config.externals.push('@electric-sql/pglite');
-    }
-    return config;
   },
 };
 

@@ -1,0 +1,6 @@
+=== git rev-parse HEAD ===
+4495cafaebd57cea1c683068888d08d9ca1a76f5
+=== git status --short ===
+?? docs/p0-consolidation/reverify/
+=== sha256sum docx ===
+9634c819b3662b10d6bbcf844c499141baa252ef71976a9f6e3453f348da88d5  docs/product/STAR_Product_Definition_v1.0.docx

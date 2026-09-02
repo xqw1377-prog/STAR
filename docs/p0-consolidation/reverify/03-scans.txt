@@ -1,0 +1,33 @@
+# Import and definition scans (star-web, excluding node_modules/.next)
+
+## A. Runtime import of star/ / AURORA / aurora
+Command: rg -n --glob '!node_modules/**' --glob '!.next/**' -e "from ['\"].*star/" -e "from ['\"]star/" -e "AURORA" -e "aurora" lib app db components
+Result: NO MATCHES
+
+## B. Unique function definitions inside star-web
+interpretCheck          star-web/lib/domain/interpret.ts:88
+evaluateGatesAt         star-web/lib/domain/gates.ts:110
+evaluateChecksAt        star-web/lib/domain/gates.ts:145
+latestByKey             star-web/lib/domain/temporal.ts:45
+latestEvidenceByCheck   star-web/lib/domain/temporal.ts:80
+CONTRACT_VERSION        star-web/lib/data/contract.ts:15  = 'solana-readonly@2'
+THRESHOLDS              star-web/lib/domain/thresholds.ts:3
+gateKeys / checkKeys    star-web/lib/domain/types.ts
+FACT_KINDS              star-web/lib/data/contract.ts:17
+
+## C. Residual non-runtime copies (must not be treated as a second engine)
+star/src/domain/*                 frozen disk copy; star-web does not import
+star-web/lib/data/star-fixture.ts local const CONTRACT = 'solana-readonly@2' (string echo, not a second contract module)
+star-web/lib/star-engine.ts       export * from './engine' (alias only)
+star-web/lib/engine.ts            I/O adapter; calls interpretCheck + evaluateChecksAt; no payload switch
+
+## D. Callers of the unique engine
+lib/engine.ts                     interpretCheck, evaluateChecksAt, latestEvidenceByCheck, quarantineReason
+lib/engine.ts evaluateGates       wrapper → evaluateProjectAsOf
+lib/engine.ts computeOpportunityScore wrapper → evaluateProjectAsOf
+lib/engine.ts refreshProject      persist after evaluateProjectAsOf
+lib/data/collect.ts               refreshProject from @/lib/engine
+app/replay-lab/page.tsx           evaluateProjectAsOf from @/lib/engine
+db/seed.ts                        refreshProject from @/lib/engine
+lib/db.ts                         refreshProject from ./star-engine (alias)
+app/project/[id]/page.tsx         refreshProject from @/lib/star-engine (alias)

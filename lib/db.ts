@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- untrusted external JSON is parsed defensively at this boundary */
 // PGlite is imported dynamically inside initDb so the server bundle never
 // statically links it (browser idb path only; see db/client.ts for server).
 import { drizzle } from 'drizzle-orm/pglite';

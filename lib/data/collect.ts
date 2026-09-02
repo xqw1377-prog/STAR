@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- untrusted external JSON is parsed defensively at this boundary */
 /**
  * Collector: pulls facts from a read-only provider, validates each against the
  * frozen contract, records evidence rows (observedAt = provider observation,

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- untrusted external JSON is parsed defensively at this boundary */
 /**
  * Solana read-only RPC provider — implementation core.
  *
@@ -142,7 +143,7 @@ export function createSolanaRpcProviderCore(): ReadonlyChainProvider {
       return base('sell-simulation', mint, null, payload, 'jupiter-quote', 'https://lite-api.jup.ag/swap/v1/quote');
     },
 
-    async relatedWallets(_mint) {
+    async relatedWallets() {
       // Cluster attribution needs wallet-graph ingestion (transfer/funding
       // analysis), which public read-only quotes do not provide. The
       // collector records the failure and the gate stays UNKNOWN (fail-closed).

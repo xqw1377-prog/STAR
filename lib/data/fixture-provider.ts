@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- untrusted external JSON is parsed defensively at this boundary */
 /** Fixture provider: serves the latest state of the synthetic timeline. Read-only by construction. */
 import { CONTRACT_VERSION, type ChainFact, type ReadonlyChainProvider } from './contract';
 import { currentFacts, FIXTURE_PROJECTS } from './star-fixture';

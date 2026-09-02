@@ -80,7 +80,7 @@ function violatesInvariant(r: Row): string | null {
   return quarantineReason(r.observedAt, r.ingestedAt, r.effectiveAt);
 }
 
-const UNKNOWN = (key: CheckKey, reason: string): GateCheck => ({ key, status: 'UNKNOWN' });
+const UNKNOWN = (key: CheckKey): GateCheck => ({ key, status: 'UNKNOWN' });
 
 function checkFromEvidence(key: CheckKey, ev: Evidence | undefined, payload: unknown): GateCheck {
   const interpreted = interpretCheck(key, payload);
@@ -90,7 +90,7 @@ function checkFromEvidence(key: CheckKey, ev: Evidence | undefined, payload: unk
 /** Payloads ride alongside kernel evidence in the same DB row. */
 function checkFor(key: CheckKey, latest: Map<CheckKey, Evidence>, payloads: Map<string, unknown>): GateCheck {
   const ev = latest.get(key);
-  if (!ev) return UNKNOWN(key, 'no evidence');
+  if (!ev) return UNKNOWN(key);
   return checkFromEvidence(key, ev, payloads.get(ev.id));
 }
 

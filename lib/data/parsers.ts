@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- untrusted external JSON is parsed defensively at this boundary */
 /**
  * Pure parsers turning raw read-only API responses into contract payloads.
  * No I/O here so every branch is unit-testable; providers stay thin transports.
@@ -89,7 +90,6 @@ export function parseProgramAccounts(
   if (!programAcct) return base;
   const progBytes = Buffer.from(programAcct.data[0], 'base64');
   if (progBytes.length < 36) return { ...base, immutable: true };
-  const programDataKey = b58encode(progBytes.subarray(4, 36));
   let authority: string | null = null;
   let immutable = false;
   if (programDataAcct) {

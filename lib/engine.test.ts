@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- untrusted external JSON is parsed defensively at this boundary */
 /**
  * Point-in-time gate evaluation over the seeded fixture timeline.
  * Timeline anchors at 2026-09-02T00:00:00Z, so cutoffs are deterministic:

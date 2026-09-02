@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- untrusted external JSON is parsed defensively at this boundary */
 import { describe, it, expect } from 'vitest';
 import { assertFact, ContractViolation, CONTRACT_VERSION, FACT_KINDS, type ChainFact } from './contract';
 import { checkKeys, CHECK_TO_GATE } from '@/lib/domain/types';

@@ -1,0 +1,100 @@
+=== npm ci ===
+added 800 packages (see previous npm ci stdout)
+=== npm run typecheck ===
+
+> star-web@0.1.0 typecheck
+> tsc --noEmit
+
+TYPECHECK_EXIT:0
+=== npm test verbose ===
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.11 /Users/xinquanwang/STAR sol/star-web
+
+ ✓ lib/domain/no-star-import.test.ts > CROSS-IMPORT star/ = ZERO > star-web runtime and tests do not import star/ 10ms
+ ✓ lib/domain/interpret.test.ts > interpretCheck — token privileges > FAIL when transfer hook is present even if mint/freeze are empty 1ms
+ ✓ lib/domain/interpret.test.ts > interpretCheck — token privileges > FAIL when mint is live even if extensions are unresolved 0ms
+ ✓ lib/domain/interpret.test.ts > interpretCheck — token privileges > UNKNOWN when Token-2022 extensions are not resolved 0ms
+ ✓ lib/domain/interpret.test.ts > interpretCheck — holders > UNKNOWN when only address-level top10 exists 0ms
+ ✓ lib/domain/interpret.test.ts > interpretCheck — holders > PASS only with entity-adjusted share inside threshold 0ms
+ ✓ lib/domain/interpret.test.ts > interpretCheck — liquidity exit depth > UNKNOWN when TVL and burn exist but exit depth is missing 0ms
+ ✓ lib/domain/interpret.test.ts > interpretCheck — liquidity exit depth > PASS when lock/burn and exit depth are both observed 0ms
+ ✓ lib/data/base58.test.ts > base58 > encodes leading zero bytes as 1s 1ms
+ ✓ lib/data/base58.test.ts > base58 > round-trips a real pubkey 1ms
+ ✓ lib/data/base58.test.ts > base58 > round-trips arbitrary bytes 1ms
+ ✓ lib/data/base58.test.ts > base58 > throws on invalid characters 0ms
+ ✓ lib/data/contract.test.ts > assertFact > accepts a contract-conforming fact 1ms
+ ✓ lib/data/contract.test.ts > assertFact > rejects wrong contract version 0ms
+ ✓ lib/data/contract.test.ts > assertFact > rejects non-UTC ISO observedAt 0ms
+ ✓ lib/data/contract.test.ts > assertFact > rejects unknown fact kind 0ms
+ ✓ lib/data/contract.test.ts > assertFact > rejects missing source 0ms
+ ✓ lib/data/contract.test.ts > assertFact > rejects non-solana chainId 0ms
+ ✓ lib/data/contract.test.ts > assertFact > rejects malformed mint 0ms
+ ✓ lib/data/contract.test.ts > assertFact > rejects missing payload 0ms
+ ✓ lib/data/contract.test.ts > assertFact > rejects fractional slot 0ms
+ ✓ lib/data/contract.test.ts > DATA-005: every fact kind maps to exactly one gate > contract FACT_KINDS and domain checkKeys are the same set 0ms
+ ✓ lib/data/contract.test.ts > DATA-005: every fact kind maps to exactly one gate > every check key has exactly one gate 0ms
+ ✓ lib/domain/temporal.test.ts > evidenceAvailableAt (DATA-001 leak guard) > hides evidence observed after the cutoff 1ms
+ ✓ lib/domain/temporal.test.ts > evidenceAtCutoff / latestEvidenceByCheck > picks the latest observation per check as of the cutoff 6ms
+ ✓ lib/domain/temporal.test.ts > evidenceAtCutoff / latestEvidenceByCheck > does not see observations after the cutoff 0ms
+ ✓ lib/domain/temporal.test.ts > evidenceAtCutoff / latestEvidenceByCheck > is deterministic on equal timestamps (DATA-002): observedAt, then ingestedAt, then id 0ms
+ ✓ lib/domain/temporal.test.ts > evidenceAtCutoff / latestEvidenceByCheck > returns empty map when nothing is observable at the cutoff 0ms
+ ✓ lib/domain/temporal.test.ts > quarantineReason / validateIsoUtc > quarantines observedAt after ingestedAt 1ms
+ ✓ lib/domain/temporal.test.ts > quarantineReason / validateIsoUtc > rejects non-UTC ISO 0ms
+ ✓ lib/data/parsers.test.ts > parseMintAccount > maps jsonParsed mint info onto the contract payload 1ms
+ ✓ lib/data/parsers.test.ts > parseMintAccount > extracts Token-2022 transfer hook from extensions 0ms
+ ✓ lib/data/parsers.test.ts > parseMintAccount > returns null for non-mint accounts 0ms
+ ✓ lib/data/parsers.test.ts > parseHolderAccounts > computes top10 share against total supply 0ms
+ ✓ lib/data/parsers.test.ts > parseHolderAccounts > returns null when supply is zero or missing 0ms
+ ✓ lib/data/parsers.test.ts > parseProgramAccounts > extracts programdata key and empty authority option → immutable 0ms
+ ✓ lib/data/parsers.test.ts > parseProgramAccounts > extracts a live upgrade authority 0ms
+ ✓ lib/data/parsers.test.ts > parseProgramAccounts > treats a non-upgradeable short account as immutable 0ms
+ ✓ lib/data/parsers.test.ts > parseDexScreener > aggregates relevant pair TVL and marks LP burn unproven 1ms
+ ✓ lib/data/parsers.test.ts > parseDexScreener > returns null TVL when no pairs relate to the mint 0ms
+ ✓ lib/data/parsers.test.ts > parseJupiterQuote + parseBuyQuote (GATE-002 legs) > marks a bounded-impact sell route executable, buy leg separate 0ms
+ ✓ lib/data/parsers.test.ts > parseJupiterQuote + parseBuyQuote (GATE-002 legs) > blocks outsized impact on either leg 0ms
+ ✓ lib/data/parsers.test.ts > parseJupiterQuote + parseBuyQuote (GATE-002 legs) > missing routes fail closed 0ms
+ ✓ lib/data/parsers.test.ts > standardSellSize > is 0.01% of supply 0ms
+ ✓ lib/data/parsers.test.ts > standardSellSize > is 0 for zero supply 0ms
+ ✓ lib/domain/gates.test.ts > evaluateGatesAt > exposes exactly the six kebab categories 9ms
+ ✓ lib/domain/gates.test.ts > evaluateGatesAt > does not expose mint or freeze as standalone gates 0ms
+ ✓ lib/domain/gates.test.ts > evaluateGatesAt > is fail-closed when a kind is missing 0ms
+ ✓ lib/domain/gates.test.ts > evaluateGatesAt > does not let concentration PASS substitute for related-wallets 0ms
+ ✓ lib/domain/gates.test.ts > evaluateGatesAt > aggregates FAIL when any gate fails 0ms
+ ✓ lib/domain/gates.test.ts > evaluateGatesAt > ignores facts observed after asOf 0ms
+ ✓ lib/domain/gates.test.ts > toGateRecordsAsOf — mint/freeze collapse > FAIL on either authority even if the sibling is missing 0ms
+ ✓ lib/domain/gates.test.ts > toGateRecordsAsOf — mint/freeze collapse > UNKNOWN when mint is PASS but freeze has not been observed 0ms
+ ✓ lib/domain/gates.test.ts > synthetic Neural Swarm timeline > 08-16: authorities and concentration FAIL; trade/program unseen 0ms
+ ✓ lib/domain/gates.test.ts > synthetic Neural Swarm timeline > does not see 08-18 revocation when replaying 08-16 0ms
+ ✓ lib/domain/gates.test.ts > synthetic Neural Swarm timeline > 08-25: six PASS and scoring allowed 0ms
+ ✓ lib/domain/gates.test.ts > anti-substitution and blocked fixtures > holder PASS cannot substitute related-wallets FAIL 0ms
+ ✓ lib/domain/gates.test.ts > anti-substitution and blocked fixtures > honeypot stays FAIL on token, trade, liquidity, wallets 0ms
+ ✓ lib/domain/gates.test.ts > anti-substitution and blocked fixtures > rocket has live mint and unproven LP lock 0ms
+ ✓ lib/domain/gates.test.ts > compat — PRD aliases are display only > maps each kebab gate to the PRD name without introducing a second type 0ms
+ ✓ lib/data/rpc-smoke.test.ts > source registry guard (DATA-006, no runtime override) > guarded factory throws even with a decoy override env var set 1ms
+ ↓ lib/data/rpc-smoke.test.ts > solana-rpc provider (live mainnet, engineering smoke) > reads mint authorities (BONK mint authority revoked years ago)
+ ↓ lib/data/rpc-smoke.test.ts > solana-rpc provider (live mainnet, engineering smoke) > holder distribution: computes on public RPC, or fail-closes when the public endpoint throttles the call
+ ↓ lib/data/rpc-smoke.test.ts > solana-rpc provider (live mainnet, engineering smoke) > reads liquidity pools from dexscreener
+ ↓ lib/data/rpc-smoke.test.ts > solana-rpc provider (live mainnet, engineering smoke) > quote endpoints respond for standard sell AND buy sizes (read-only probes, NOT tradability proof)
+ ↓ lib/data/rpc-smoke.test.ts > solana-rpc provider (live mainnet, engineering smoke) > relatedWallets honestly throws (cluster analysis needs wallet graph) → gate UNKNOWN
+ ↓ lib/data/rpc-smoke.test.ts > solana-rpc provider (live mainnet, engineering smoke) > reports program verification UNKNOWN shape when no program tracked
+ ✓ lib/engine.test.ts > point-in-time gates — proj-neural > 08-16: authorities live → token-permissions FAIL, thin liquidity, concentrated holders, no score 3ms
+ ✓ lib/engine.test.ts > point-in-time gates — proj-neural > does NOT see the 08-18 authority revocation when replaying 08-16 (DATA-001) 3ms
+ ✓ lib/engine.test.ts > point-in-time gates — proj-neural > 08-19: authorities revoked → token-permissions PASS, liquidity still thin (DATA-003 overturn) 2ms
+ ✓ lib/engine.test.ts > point-in-time gates — proj-neural > 08-23: liquidity + tradability + program PASS, holders still concentrated 2ms
+ ✓ lib/engine.test.ts > point-in-time gates — proj-neural > 08-25: all six gates PASS → score exists, readiness READY 2ms
+ ✓ lib/engine.test.ts > point-in-time gates — proj-neural > before any evidence: every gate UNKNOWN (GATE-008 fail-closed), readiness RESEARCH_REQUIRED 1ms
+ ✓ lib/engine.test.ts > blocked projects never score (GATE-007/008) > proj-honeypot: sell leg broken → tradability FAIL, cluster 70% → related-wallets FAIL 1ms
+ ✓ lib/engine.test.ts > blocked projects never score (GATE-007/008) > anti-regression: concentration PASS can NOT substitute related-wallets FAIL (proj-llm-lab) 1ms
+ ✓ lib/engine.test.ts > blocked projects never score (GATE-007/008) > proj-rocket: live mint authority, concentrated holders, unproven LP lock 2ms
+ ✓ lib/engine.test.ts > temporal quarantine > quarantines evidence rows where observedAt > ingestedAt 3ms
+ ✓ lib/engine.test.ts > refreshProject persistence > writes six gate-group rows and a score row only when earned 4ms
+
+ Test Files  9 passed (9)
+      Tests  72 passed | 6 skipped (78)
+   Start at  04:12:59
+   Duration  1.40s (transform 358ms, setup 0ms, import 497ms, tests 1.27s, environment 1ms)
+
+TEST_EXIT:0
