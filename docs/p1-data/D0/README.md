@@ -18,6 +18,7 @@ P1                         = NO-GO
 | IDEMPOTENCY_SEMANTICS.md | 双键规范；两阶段判定表；回执/事实冲突两级作用域；唯一约束；parser 重放 |
 | SYNTHETIC_CORPUS_CONTRACT.md | 50+100 合成语料：oracle 独立、无前视不变量、家族分组（real=0） |
 | DATA_HEALTH_MODEL.md | 五率与质量指标；窗口/分母/零样本；degraded 优先级；plan_item 归因 |
-| D0_ACCEPTANCE.md | 验收门禁与 D1-A/B/C/D 测试对齐（T01–T28） |
+| TEMPORAL_RESEARCH_CONTEXT.md | Narrative/Lifecycle 时态事实合同（C3 修复）+ 外部审计 C1–C6 处置映射 |
+| D0_ACCEPTANCE.md | 验收门禁与 D1-A/B/C/D 测试对齐（T01–T30） |
 
 边界：不接真实来源（HOLD）、不新增页面、不改六门禁与阈值、不引入钱包/交易/AURORA。
