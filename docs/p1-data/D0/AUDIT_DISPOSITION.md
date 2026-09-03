@@ -1,4 +1,4 @@
-# P1-DATA-D0 · 审计处置总账（AUDIT_DISPOSITION）· rev5
+# P1-DATA-D0 · 审计处置总账（AUDIT_DISPOSITION）· rev6
 
 登记两轮外部审计全部发现的处置归属；本文件只登记，不实现。
 
@@ -7,7 +7,7 @@
 | 编号 | 发现 | 处置阶段 |
 |---|---|---|
 | P0-1 | 旧 score 残留 + Top-K 无当前 readiness 校验 → 失败项目留在可决策队列（含 C2） | **J0**（readiness/队列过滤语义冻结后修复）+ D1-B（评分读取时态化） |
-| P0-2 | 来源失败/过期不降级旧 PASS（缺 evidence validity/SLA 机制） | **D1-B**：事实 TTL/SLA 合同 + 过期降级为 UNKNOWN（fail-closed 与健康模型分离：健康不改变 gate，但**过期事实本身**按事实层规则失效） |
+| P0-2 | 来源失败/过期不降级旧 PASS（缺 evidence validity/SLA 机制） | **D1-B**（合同归宿 = R5-12 EvidenceEligibilityPolicy：asOf/来源 SLA/事实时态/冲突/许可五输入；过期强制事实 ⇒ UNKNOWN） |
 | P0-3 | Replay 读当前 narratives/lifecycle（前视） | **D1-B**（TEMPORAL_RESEARCH_CONTEXT 已合同化，T29/T30） |
 | P0-4 | ingestedAt 先于 observedAt 生成 → 真源事实被自隔离 | **D1-B**（写入前时态校验 + 固定采集时钟） |
 | P0-5 | API 密钥反射（canary 实测）+ seed/collect 无鉴权/限流 + 无安全头 | **S0**（工单见下） |

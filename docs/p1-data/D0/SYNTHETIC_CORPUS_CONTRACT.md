@@ -1,4 +1,4 @@
-# P1-DATA-D0 · 合成语料合同（SYNTHETIC CORPUS CONTRACT，50+100）· rev4
+# P1-DATA-D0 · 合成语料合同（SYNTHETIC CORPUS CONTRACT，50+100）· rev6
 
 状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03
 上位规范：`docs/p0-data/HISTORICAL_SAMPLE_SPEC.md`（排除规则与切分纪律全部继承）
