@@ -7,7 +7,8 @@ P1-DATA-D0 rev3            = SUPERSEDED（ffaf938；终审 CHANGES-REQUIRED：
                              递交说明与正文不一致等八项阻断）
 P1-DATA-D0 rev4            = SUPERSEDED（20c2bca）
 P1-DATA-D0 rev5            = SUPERSEDED（1859b81；R5 裁定清单退回）
-P1-DATA-D0 rev6            = CURRENT / DOCS-ONLY（吸收 R5-01…R5-20；测试目录 T01–T30 + R5-T01–20）
+P1-DATA-D0 rev6            = SUPERSEDED（d23f331；终审 4 项可实施性阻断）
+P1-DATA-D0 rev7            = CURRENT / DOCS-ONLY（悬空句柄语义 / fact 擦除事件 / plan_item 表 / 双解决事件分轨）
 P1-DATA-D1                 = HOLD（A/B/C/D 分段授权，未放行）
 P1                         = NO-GO
 ```

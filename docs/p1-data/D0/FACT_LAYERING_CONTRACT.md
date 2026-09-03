@@ -74,6 +74,7 @@ blob 仅当 `retention_class` 允许时保存，否则只存 hash、长度、MIM
 | `observed_at` / `ingested_at` | 回执仅此二时间 + 锚（事实时间在 Layer N） |
 | `payload_hash` / `payload_ref` | **payload_inline 自本版删除（R5-05）**；`payload_ref` = **完整 scoped blob_key**；原始字节统一存 RawBlob（**合成夹具同样适用**）；Receipt 行不可变，Blob 按处置协议物理删除 |
 | **blob 身份（阻断 3 冻结）** | `blob_key = SHA256(scope ‖ payload_hash)`，`scope = (source_id, retention_class)`；RawBlob 主键 = `blob_key`——相同字节跨许可范围天然生成不同物理对象，「不共享」可执行 |
+| **悬空句柄语义（rev7）** | `payload_ref` 无 FK，为**设计性悬空内容句柄**：完整性 = 创建时同事务 + PURGE 唯一删除入口；读取经处置投影 `BYTES / PURGED / MISSING`（详见 ERD raw_receipt 节） |
 | `status` | `SUCCESS` / `PARTIAL`（与终态对应） |
 | 关系 | 行内**不设** relation 单槽；关系一律走 §5 ReceiptRelation（R5-08） |
 
@@ -162,4 +163,8 @@ InterpretationContext **同时冻结 hash 与 artifact reference**；
     fact-level HISTORICAL 复算可行，raw parser replay 返回 `RAW_SOURCE_PURGED`；
   - `LICENSE_ERASURE`：按法律/许可范围删除受限原始与派生内容载荷；
     仅留非内容 hash、处置审计与墓碑记录；相关历史评估返回 `REPLAY_SOURCE_PURGED`；
+    **派生载荷擦除（rev7）**：fact 行 append-only 不动，载荷字节外置
+    （normalized_fact.fact_payload_ref，同 blob 协议），擦除 = 追加
+    `fact_erasure_event(LICENSE_ERASED)` + 外置 blob 按 PURGE 协议删除（同事务）；
+    读取投影 `resolveFactPayload → PAYLOAD | ERASED`（ERASED ⇒ 事实不可用 ⇒ 门禁 UNKNOWN）；
 - **禁止在原 payload hash 对应位置写墓碑字节**。

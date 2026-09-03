@@ -33,6 +33,15 @@ erDiagram
 - `attempt_origin ∈ {INITIAL,RETRY,CRASH_REPLAY,SCHEDULER_REISSUE}` CHECK
 - `request_params_sanitized` CHECK：键名黑名单校验（api_key/authorization/signature/url-credential）由 repository 强制
 
+### collection_plan_item（append-only；阻断 4 新增）
+- PK `id`；**UNIQUE(`source_id, method_id, subject_project, expected_fact_kind, plan_version`)**
+- 字段：`observation_template`（规范化查询模板，衍生 query_identity 的分母口径）、
+  `subject_project / expected_fact_kind`（ProjectHealth 归因目标）、`schedule`、
+  `plan_version`、`created_at`、`retired_at`（可空；版本化经追加新行 + 旧行 retired，不 UPDATE）
+- FK：`collection_attempt.collection_plan_item_id → collection_plan_item.id`（可空，计划外尝试允许）
+- **completeness 分母**（R5-13）= 未 retired 的 plan item 集合；版本演进不改变历史窗口分母
+  （历史 completeness 复现按"该窗口当时活跃的 plan 版本"计算）
+
 ### attempt_outcome_event（append-only）
 - PK `id`；**UNIQUE(`attempt_id`)**（R5-02 恰一终态）
 - FK `attempt_id → collection_attempt.id`
@@ -57,6 +66,12 @@ erDiagram
 - **CHECK (`anchor_slot IS NOT NULL OR anchor_time IS NOT NULL`)**（R5-06）
 - CHECK（双锚同在时一致性由采集器断言，违例入隔离表，不落本表）
 - `status ∈ {SUCCESS,PARTIAL}`；`payload_hash` NOT NULL；`payload_ref` NOT NULL（无 inline）
+- **`payload_ref` 无数据库级 FK——设计性悬空内容句柄**（阻断 1 冻结语义）：
+  完整性由两条不变式替代外键——①创建时同事务保证 blob 已写入（创建时强一致）；
+  ②删除唯一入口是 PURGE 协议（blob 物理删除与 PURGE_EXECUTED 同事务提交）。
+  读取走**处置投影**：`resolvePayload(receipt) → BYTES | PURGED | MISSING`
+  （有 PURGE_EXECUTED ⇒ PURGED，hash 为存在性证明；无事件而 blob 缺失 ⇒ MISSING，
+  记对账异常并 QUARANTINE/RECONCILE）。悬空不是异常态，是 PURGE 后的合法稳态
 
 ### raw_blob（scoped 内容寻址仓；阻断 3 修正）
 - **`blob_key = SHA256(scope ‖ payload_hash)`，PK(`blob_key`)**；`scope = (source_id, retention_class)`
@@ -66,6 +81,14 @@ erDiagram
 ### receipt_relation（append-only，双端点）
 - PK `id`；FK `receipt_id → raw_receipt.id`；FK `related_receipt_id → raw_receipt.id`
 - `relation ∈ {SUPERSEDES, CONTESTS, DUPLICATES}` CHECK；`basis`、`creator_ref`、`created_at`
+
+### fact_erasure_event（append-only；阻断 3 新增）
+- PK `id`；FK `fact_id → normalized_fact.id`
+- `disposition = LICENSE_ERASED`；`scope`（法律/许可范围）；`authorization_ref` NOT NULL；`created_at`
+- **不改 fact 行**（append-only 保持）；读取投影 `resolveFactPayload(fact) →
+  PAYLOAD | ERASED`：有活动 LICENSE_ERASED ⇒ 返回 ERASED（仅非内容 hash + 审计可见），
+  评估/回放引用 ⇒ 事实不可用 ⇒ 门禁 UNKNOWN / REPLAY_SOURCE_PURGED；
+  字节删除 = fact_payload_ref 指向的外置 blob 按 PURGE 协议物理删除（同事务）
 
 ### fact_resolution_event（append-only；跨源 Fact 冲突解决）
 - PK `id`；FK `fact_relation_id → fact_relation.id` NOT NULL
@@ -87,12 +110,15 @@ erDiagram
 - `effective_time_kind ∈ {CHAIN_EVENT,OBSERVATION_BOUND,UNKNOWN}` CHECK
 - FK `supersedes_fact_id → normalized_fact.id`（自引用可空）
 - **FK `parser_artifact_id → artifact_registry.id` NOT NULL**（真实外键到 parser 工件）
+- **`fact_payload_ref`（阻断 3 新增）**：派生内容载荷外置 scoped blob（同 RawBlob 协议：
+  blob_key=SHA256(scope‖payload_hash)、设计性悬空句柄、行内零字节）——append-only 行
+  与 LICENSE_ERASURE 的"删除派生内容载荷"由此兼容；行内仅存 `payload_hash`
 
 ### fact_relation（append-only；阻断 4 新增）
 - PK `id`；FK `fact_a → normalized_fact.id`；FK `fact_b → normalized_fact.id`
 - `relation ∈ {CONTRADICTS, SUPERSEDES, TRIGGERS}` CHECK
 - **TRIGGERS** = LifecycleTransition 的触发依据关系（fact_a=transition，fact_b=触发事实）
-- CONTESTED 资格判定经此表 + contest_resolution_event
+- 资格判定经此表；**解除冻结经 fact_resolution_event**（回执级 CONTESTS 才走 contest_resolution_event——两级解决事件严格分轨）
 
 ### interpretation_context（主表；JSONB 外键已拆关系表）
 - PK `id`；`contract_artifact_id` **FK→artifact_registry**（替代裸 hash——"hash+可取回工件"）；
