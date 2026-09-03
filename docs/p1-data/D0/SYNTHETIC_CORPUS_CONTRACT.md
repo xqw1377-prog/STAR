@@ -1,7 +1,9 @@
-# P1-DATA-D0 · 合成语料合同（SYNTHETIC CORPUS CONTRACT，50+100）
+# P1-DATA-D0 · 合成语料合同（SYNTHETIC CORPUS CONTRACT，50+100）· rev2
 
 状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03
-上位规范：`docs/p0-data/HISTORICAL_SAMPLE_SPEC.md`（其排除规则与切分纪律全部继承）
+上位规范：`docs/p0-data/HISTORICAL_SAMPLE_SPEC.md`（排除规则与切分纪律全部继承）
+rev2 变更：expected 由独立 oracle/金标生成（裁定 #7）、无前视不变量与敏感性测试分离、
+场景家族整体分组。
 
 ## 0. 诚实声明（不可移除）
 
@@ -20,53 +22,69 @@
 FREEZE_ABUSE, LIQUIDITY_DEATH, ATTENTION_FADE, MANIPULATED_VOLUME}`；
 其中 `MANIPULATED_VOLUME` 同时混入两队列（反操纵测试）。
 
-## 2. Manifest schema（每案例一行，`synthetic-corpus/manifest.json`）
+## 2. expected 的来源——独立 oracle（裁定 #7，禁止实现验证实现）
 
-继承上位规范全部字段（sample_id, cohort, narrative, cutoffs, outcome_window_30d/90d,
-label_confidence…）并新增：
+- `expected.gates / readiness / score_total` 由**独立 oracle** 或人工冻结的
+  **golden manifest** 产生；
+- oracle **禁止 import**：`interpretCheck`、`gates.ts`、`aggregateGates`、
+  生产阈值常量（THRESHOLDS）及任何被测引擎路径——以 import-lint 测试强制
+  （D1 测试 P1D-T17）；
+- oracle 允许依赖的仅有：契约 Payload 类型（纯类型）、门禁语义的**文字规范**
+  （PRD §06 与 D0 合同）——即用第二实现（或人工）按规范独立推导预期值；
+- golden manifest 一经冻结进入版本管理，其修改需与引擎变更同评审（防止双向迁就）。
+
+## 3. Manifest schema（每案例一行，`synthetic-corpus/manifest.json`）
+
+继承上位规范全部字段并新增：
 
 ```jsonc
 {
   "sample_id": "syn-001",
   "cohort": "SUCCESS | FAIL",
   "narrative": "inscriptions | solana-meme | ai-agent",
-  "t0": "…",                      // 案例时间原点，全部事实相对 t0 偏移
+  "family_id": "F-017",          // 场景家族：同模板变体必须同 partition（§6）
+  "t0": "…",                      // 案例时间原点
   "decision_cutoff": "t0+Nd",     // 评估时点（唯一，明示）
-  "expected": {                   // 截止时点的预期引擎输出（回归金标准）
+  "expected": {                   // 由独立 oracle/golden 生成（§2）
     "gates": { "token-permissions": "PASS|FAIL|UNKNOWN", "…6 组全列…" },
     "readiness": "READY|RESEARCH_REQUIRED|BLOCKED|TOO_LATE",
     "score_total": "number|null"
   },
   "expected_unknowns": [ { "gate": "…", "reason": "…" } ],
-  "falsification": [              // 反证：什么证据会推翻预期（校准测试的负样本）
-    { "if_evidence": "…", "then_gate_flips": "token-permissions: PASS→FAIL" }
-  ],
+  "falsification": [ { "if_evidence": "…", "then_gate_flips": "…" } ],
   "outcome": { "window_30d": "…", "window_90d": "…", "exit_executable": true },
-  "hindsight": [                  // cutoff 之后的事实（仅供结果标注与泄漏测试）
-    { "fact_kind": "…", "observed_at": "t0+M>d", "payload": {} }
-  ],
-  "generator_seed": 12345         // 确定性生成种子
+  "hindsight": [ { "fact_kind": "…", "observed_at": "t0+M>d", "payload": {} } ],
+  "generator_seed": 12345
 }
 ```
 
-## 3. 反泄漏规则（复用已冻结内核）
+## 4. 两个分离的测试不变量（裁定 #7）
 
-- 案例事实由 fixture 供应器按 `observed_at = t0 + offset` 展开为标准 Layer N 事实；
-- 引擎评估固定 `asOf = decision_cutoff`，`latestEvidenceByCheck` 的截止过滤
-  **天然排除 hindsight**（DATA-001 同机制，无需新代码路径）；
-- 校准测试额外反向断言：若把任一 hindsight 事实的 observed_at 篡改为 cutoff 前，
-  至少一个案例的预期输出必须改变——否则说明该案例区分度不足，退回生成器重做。
+1. **无前视不变量（主测试，P1D-T07a）**：对任意案例，cutoff 评估结果在
+   hindsight **新增 / 删除 / 修改** 下必须**完全不变**（字节级）；
+2. **区分度敏感性测试（独立，P1D-T09）**：把某 hindsight 事实篡改到 cutoff 前，
+   ≥1 个案例的预期输出必须改变——它证明语料有判别力，
+   **不得**替代或弱化 1 的不变量。
 
-## 4. 生成与验收
+## 5. 生成与验收
 
-- 生成器：确定性（种子固定 ⇒ manifest 与全部事实字节级可复现，D1 测试 P1D-T08）；
-- 覆盖率硬约束：六个门禁 × {PASS, FAIL, UNKNOWN} 每格 ≥ 3 个案例；
-  50 SUCCESS 中 ≥ 10 个在 cutoff 时刻六门禁全 PASS（含分数>0），
-  100 FAIL 中 ≥ 30 个存在"部分门禁 PASS 但被单项 FAIL 阻断"（反替代回归语料化）；
-- 每案例校准 = `evaluateChecksAt(facts(cutoff))` 输出与 `expected` 全等；
-- 语料状态字段：`synthetic = 150`、`real = 0`（写入 README 与 Desk 数据源标注）。
+- 生成器确定性：种子固定 ⇒ manifest 与全部事实字节级可复现（P1D-T08）；
+- 覆盖率硬约束：六门禁 × {PASS, FAIL, UNKNOWN} 每格 ≥ 3 案例；
+  50 SUCCESS 中 ≥ 10 个 cutoff 时刻六门禁全 PASS（分数>0）；
+  100 FAIL 中 ≥ 30 个"部分门禁 PASS 但被单项 FAIL 阻断"（反替代语料化）；
+- 每案例校准 = 引擎输出 vs **oracle/golden** expected 全等（P1D-T07）；
+- 语料状态字段：`synthetic = 150`、`real = 0`。
 
-## 5. D1 证明测试
+## 6. 家族分组纪律（裁定 #7）
 
-`P1D-T07`（150 案例全量校准通过）、`P1D-T08`（种子重放字节级一致）、
-`P1D-T09`（hindsight 篡改区分度断言）、`P1D-T10`（覆盖率矩阵约束）。
+- `family_id` 标识场景模板；**同一 family 的全部变体必须落在同一 partition**
+  （calibration / validation 切分按 family 整体分配，禁止同族变体跨集）；
+- 切分表冻结于 `corpus-partition.json`，先于任何阈值调优冻结（继承上位规范）；
+- 校准集只用于调阈值；验证集在阈值冻结前对规则作者不可见（沿用上位规范）。
+
+## 7. D1 证明测试
+
+`T07`（150 案例校准 vs oracle/golden）、`T07a`（无前视不变量，hindsight 增删改不变）、
+`T08`（种子重放字节级一致）、`T09`（区分度敏感性，独立）、`T10`（覆盖率矩阵）、
+`T17`（oracle import 隔离 lint）、`T18`（family 分组完整性：无同族跨集）。
+

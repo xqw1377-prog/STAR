@@ -1,33 +1,29 @@
-# P1-DATA-D0 · 验收矩阵（D0 ACCEPTANCE）
+# P1-DATA-D0 · 验收矩阵（D0 ACCEPTANCE）· rev2
 
 状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03
-（rev1：吸收评审五处核对点——原始字节哈希、身份分层 R0、parser 输入门 R1、
-受控例外 §2.1、scheduled_at §2.2；diff 741284c..HEAD 仅含 D0 文档修订）
-本提交**只含文档**（`git show --stat` 范围 = `docs/p1-data/D0/**`）。
-每项 D0 门禁给出：设计条款出处 + D1 实现阶段将以哪个测试证明。
+rev1：吸收首轮五核对点；rev2：闭合第二轮七阻断项 + 两一致性修正
+（Attempt/Receipt 拆分、supersedes 单向、CONTESTED 冻结 R2、parser 策略冻结 R3、
+处置事件化 PURGE、effective_time_kind、语料 oracle 独立与家族分组、
+payload 必填性、四率拆分）。本提交只含文档（`git show --stat` = `docs/p1-data/D0/**`）。
 
 | # | D0 门禁 | 设计条款 | D1 证明测试 |
 |---|---|---|---|
-| 1 | Raw 层不可更新、不可删除 | FACT_LAYERING §2 不可变性（触发器+repository 单入口；blob 内容寻址） | `P1D-T01`：尝试 UPDATE/DELETE raw 行必须抛错且计数不变 |
-| 2 | 重复采集不重复生成事实 | IDEMPOTENCY §4#1、§6（receipt_key 唯一约束 + DO NOTHING + run 日志） | `P1D-T02`：同回执采集 N 次，raw 行数=1、fact 行数不变 |
-| 3 | 同一事实新版本保留完整血缘 | IDEMPOTENCY §4#2/#3、§5（CONTESTS/SUPERSEDES 链 + fact.superseded_by） | `P1D-T03`：注入冲突后两版并存、链完整、投影带 conflict 标记 |
-| 4 | 每条 Evidence 可溯到 raw hash / parser / 规则版本 | FACT_LAYERING §3/§4（receipt_id、parser_version、rule_version、evidence_refs） | `P1D-T03b`：随机抽 evidence 反查 receipt → payload_hash 全链存在 |
-| 5 | 回放只见 cutoff 前已观察事实 | FACT_LAYERING §4（投影走 Layer N + latestEvidenceByCheck） | 语料 `P1D-T07/T09`（含 hindsight 反向篡改断言） |
-| 6 | parser 重放结果确定 | IDEMPOTENCY §5（重放不重采集；同字节+同版本⇒同 payload_hash） | `P1D-T04`：fixture 全量重放两次逐字节一致；`P1D-T05` JCS 向量 |
-| 7 | UNKNOWN 全程 fail-closed | IDEMPOTENCY §4#5/#6（UNKNOWN/ERROR 不产 fact）；HEALTH 铁律 2 | `P1D-T06b`：超时注入后对应门禁=UNKNOWN、score=null、readiness 不因健康变化 |
-| 8 | 来源仍只有 synthetic fixture | 设计未触碰 source-registry；采集对象仅 `synthetic-fixtures` | 现有隔离 grep 0/0/0 纳入 D1 电池（沿用） |
-| 9 | 不加页面 / 不接真源 / 不改六门阈值 | 各文档"明确不做"节；本提交 diff 仅 docs | `git show --stat` 仅 `docs/p1-data/D0/**`；六门阈值常量零 diff |
-| 10 | engine.ts 注释修正只登记 | 见下表"登记不执行" | 并入 D1 首个实现提交 |
+| 1 | Raw 回执不可 UPDATE/DELETE；授权处置走事件链 | FACT_LAYERING §4（触发器；`raw_disposition_event`；PURGE 物理删 blob、hash 留证、HOLD 阻断） | `T01`：① 普通 UPDATE/DELETE 被拒 ② 授权 PURGE：行原样、blob 删除、事件在链 ③ HOLD 期间 PURGE 被拒 |
+| 2 | 重复采集不重复生成回执/事实 | IDEMPOTENCY §4#1、§6 | `T02`：同回执 N 次采集 → 1 回执、fact 不变 |
+| 3 | 新版本保留完整血缘且旧行零修改 | FACT_LAYERING §5（`supersedes_fact_id` 单向） | `T03a`：替代后旧行字节不变、链可遍历 |
+| 4 | Evidence 溯源到 raw hash/parser/rule 版本 | FACT_LAYERING §6（interpretation_context） | `T03b`：evidence → receipt → payload_hash 全链存在 |
+| 5 | 回放只见 cutoff 前事实 | FACT_LAYERING §6 + 语料 §4 | `T07a`（hindsight 增删改，cutoff 输出字节级不变） |
+| 6 | parser 重放确定；历史结论可复现 | IDEMPOTENCY §5（R3 双模式） | `T04`（重放确定性）、`T16`（HISTORICAL 字节级复现；REINTERPRET 带 `reinterpreted=true` 且不覆盖） |
+| 7 | UNKNOWN fail-closed；无响应不伪装观察 | IDEMPOTENCY §4 Attempt 层（A2/A3） | `T06b`（超时→门禁 UNKNOWN、score=null）、`T14`（N 次超时→N Attempt、0 Receipt） |
+| 8 | 冲突未解决不得晚者胜 | IDEMPOTENCY R2（CONTESTED→UNKNOWN/null/RESEARCH_REQUIRED；`contest_resolution_event`） | `T15`：注入冲突→冻结输出；解决事件后按 resolved receipt 恢复 |
+| 9 | 来源仍只有 synthetic fixture | 未触碰 source-registry | 隔离 grep 0/0/0 纳入 D1 电池 |
+| 10 | 不加页面/不接真源/不改六门阈值 | 各文档"明确不做" | `git show --stat` 仅 docs；阈值常量零 diff |
+| 11 | 语料预期独立于被测引擎 | 语料 §2（oracle import 禁令） | `T17`（import-lint）、`T07`（校准 vs golden）、`T18`（family 无跨集） |
+| 12 | engine.ts 注释修正只登记 | 下表 | 并入 D1 首个实现提交 |
 
-## 登记不执行（deferred）
+登记不执行：① engine.ts 头注释 → "I/O + persistence adapter; domain logic in lib/domain"（D1 首提交）；
+② 载体规范 `git bundle create f.bundle HEAD main`（本次已采用）。
 
-| 项 | 处置 |
-|---|---|
-| `lib/engine.ts` 头注释 "I/O adapter only" 措辞 | 改为 "I/O + persistence adapter; domain logic in lib/domain"——**D1 首提交执行**，本包不夹带 |
-| 载体规范 | 下次 bundle 制作使用 `git bundle create f.bundle HEAD main`（含默认 HEAD） |
-
-## D1 放行申请条件（本包评审通过后）
-
-D1（synthetic implementation）将交付：raw/fact 表与触发器、幂等写入路径、
-fixture→raw→parser→fact 管道、150 案例合成语料与校准测试、健康投影、
-上述 P1D-T01…T13 全部测试，以及两条登记项。范围继续排除：真实来源、新页面、阈值变更。
+D1 放行申请条件：按 A/B/C/D 四段（A：schema+不可变边界+幂等/并发 → T01/T02/T03a/T06/T14；
+B：血缘管道 → T03b/T04/T05/T15/T16；C：语料校准 → T07/T07a/T08/T09/T10/T17/T18；
+D：健康投影 → T11/T12/T13/T19）。范围继续排除：真实来源、新页面、阈值变更。

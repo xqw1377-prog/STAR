@@ -1,6 +1,8 @@
-# P1-DATA-D0 DESIGN PACKAGE
+# P1-DATA-D0 DESIGN PACKAGE（rev2）
 
 状态：DESIGN-ONLY（无实现代码）· 基线 star-web@6f40295 · 2026-09-03
+rev2：Attempt/Receipt 拆分、supersedes 单向、CONTESTED 冻结、parser 策略冻结与双回放、
+处置事件化 PURGE、effective_time_kind、语料 oracle 独立与家族分组、四率拆分。
 
 | 文档 | 内容 |
 |---|---|
