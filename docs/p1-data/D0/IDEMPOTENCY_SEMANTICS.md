@@ -65,7 +65,7 @@ receipt_key          命名空间 + observation_identity + as-received payload h
 
 - RawReceipt：`UNIQUE(receipt_key)` + `ON CONFLICT DO NOTHING`；
 - AttemptOutcomeEvent：`UNIQUE(attempt_id)`；
-- AttemptReceiptLink：`UNIQUE(outcome_event_id)`（每 Outcome 恰一条 Link；Receipt 可被多 Link 引用）；
+- AttemptReceiptLink：`UNIQUE(outcome_event_id)`（SUCCESS/PARTIAL 的 Outcome 恰一条 Link，其余终态零条；Receipt 可被多 Link 引用）；
 - CollectionAttempt：`lease_expires_at` NOT NULL（UNRESOLVED 确定性时点谓词）；
 - NormalizedFact：`UNIQUE(receipt_id, fact_kind, subject_type, subject_id,
   parser_version, fact_local_key)`（fact_local_key NOT NULL，单值=singleton）；

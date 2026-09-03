@@ -8,7 +8,7 @@ rev6 逐项吸收 R5 裁定；条款号即裁定号，便于回执映射。
 
 ```text
 Layer A0 CollectionAttempt        一次物理请求一行，永不去重（R5-07）
-Layer A1 AttemptOutcomeEvent      每 Attempt 恰一个终态（R5-02）
+Layer A1 AttemptOutcomeEvent      每 Attempt 最多一个；完成态恰一终态（R5-02）
 Layer R  RawReceipt               由可留存响应字节形成；行不可变（R5-05）
 Layer N  NormalizedFact           append-only；血缘完整（R5-09/R5-10）
 Layer P  Evidence/Gate/Score      只消费具备 eligibility 的时点事实（R5-12）
@@ -83,7 +83,7 @@ append-only 链接表 `(id, outcome_event_id UNIQUE NOT NULL, receipt_id NOT NUL
 created_at)`——每次"收到可留存字节"都产生一条 Link；`receipt_key` 幂等命中时
 **不新建 Receipt，但仍写入新 Link**，从而重试/崩溃重放/调度重发的多次 Attempt
 全部挂到同一 Receipt，血缘不断裂。方向恒为
-`CollectionAttempt → Outcome(≤1) → AttemptReceiptLink(每 Outcome 一条) → RawReceipt(可被多 Link 引用)`。
+`CollectionAttempt → Outcome(≤1) → AttemptReceiptLink(SUCCESS/PARTIAL 才有，恰一条；其余终态零条) → RawReceipt(可被多 Link 引用)`。
 
 **原子性（R5-01）**：收到可留存字节时，Outcome、（如新键）Receipt、AttemptReceiptLink
 在**同一数据库事务**写入并一起提交；任何一步失败整体回滚；
@@ -118,6 +118,9 @@ resolved_receipt_id, 授权/规则引用, 时间`）。
 **禁止投影期即时套用优先级选赢家**：source priority 只能作为已追加的
 ContestResolutionEvent 的冻结依据存在；事件追加前，冲突 Fact 保持不可用、
 Gate=UNKNOWN。解决事件不改旧 Receipt 或旧 Fact，资格投影按事件链重算。
+**跨源事实冲突**（fact_relation CONTRADICTS）同构处理：经追加
+**FactResolutionEvent**（→ fact_relation；basis ∈ SOURCE_PRIORITY / MANUAL_AUDIT；
+basis_version = 策略工件内容哈希）解除资格冻结，事件前同样 Gate=UNKNOWN。
 矛盾第二终态等终态异常一律入 append-only 终态异常审计事件。
 
 ## 7. Layer N — NormalizedFact（R5-10）

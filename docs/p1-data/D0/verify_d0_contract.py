@@ -104,9 +104,28 @@ MUST = [
     ("ERD_CONSTRAINTS.md", "lease_expires_at", "终审阻断2"),
     ("ERD_CONSTRAINTS.md", "PK(`blob_key`)", "终审阻断3"),
     ("README.md", "DESIGN PACKAGE（rev6）", "终审阻断6"),
+    ("ERD_CONSTRAINTS.md", "||--o| ATTEMPT_RECEIPT_LINK", "裁定7-1"),
+    ("ERD_CONSTRAINTS.md", "ATTEMPT_OUTCOME_EVENT ||--o| RAW_RECEIPT", "裁定7-2"),
+    ("ERD_CONSTRAINTS.md", "attempt_id → collection_attempt.id", "裁定7-2"),
+    ("ERD_CONSTRAINTS.md", "blob_key → raw_blob.blob_key", "裁定7-3"),
+    ("ERD_CONSTRAINTS.md", "{ADD, REMOVE, RECONCILE}", "裁定7-3"),
+    ("ERD_CONSTRAINTS.md", "reconciled_count", "裁定7-3"),
+    ("ERD_CONSTRAINTS.md", "### fact_resolution_event", "裁定7-4"),
+    ("ERD_CONSTRAINTS.md", "### interpretation_context_parser", "裁定7-5"),
+    ("ERD_CONSTRAINTS.md", "### interpretation_context_fact", "裁定7-5"),
+    ("ERD_CONSTRAINTS.md", "contract_artifact_id", "裁定7-5"),
+    ("ERD_CONSTRAINTS.md", "error_body_ref → raw_blob.blob_key", "裁定7-6"),
+    ("FACT_LAYERING_CONTRACT.md", "每 Attempt 最多一个；完成态恰一终态（R5-02）", "裁定7-7"),
+    ("FACT_LAYERING_CONTRACT.md", "FactResolutionEvent", "裁定7-4"),
 ]
 
 FORBIDDEN = [
+    "每 Attempt 恰一个终态",
+    "attempt_started_id",
+    "blob_hash → raw_blob.hash",
+    "+1 receipt / −1 purge",
+    "||--|| ATTEMPT_RECEIPT_LINK",
+    "RAW_RECEIPT ||--o| RAW_RECEIPT",
     "恰一个**终态",            # 旧"恰一终态"表述（阻断2 矛盾源）
     "PK `hash`",              # blob 全局主键（阻断3）
     "健康恶化最多把 readiness",  # 越权表述（阻断5）

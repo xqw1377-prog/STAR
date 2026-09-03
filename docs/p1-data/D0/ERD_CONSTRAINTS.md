@@ -9,10 +9,10 @@
 ```mermaid
 erDiagram
   COLLECTION_ATTEMPT ||--o| ATTEMPT_OUTCOME_EVENT : "attempt_id UNIQUE（最多一个）"
-  ATTEMPT_OUTCOME_EVENT ||--|| ATTEMPT_RECEIPT_LINK : "outcome_event_id UNIQUE"
+  ATTEMPT_OUTCOME_EVENT ||--o| ATTEMPT_RECEIPT_LINK : "outcome_event_id UNIQUE（SUCCESS/PARTIAL 才有 Link）"
   ATTEMPT_RECEIPT_LINK }o--|| RAW_RECEIPT : "receipt_id（多 Link 可指同一 Receipt）"
   RAW_RECEIPT }o--|| RAW_BLOB : "blob_key（scoped）"
-  RAW_RECEIPT ||--o| RAW_RECEIPT : "creator_outcome_event_id（首次创建锚点）"
+  ATTEMPT_OUTCOME_EVENT ||--o| RAW_RECEIPT : "creator_outcome_event_id（首次创建锚点）"
   RAW_RECEIPT ||--o{ RECEIPT_RELATION : "任一端点"
   RECEIPT_RELATION }o--|| RAW_RECEIPT : "另一端点"
   RECEIPT_RELATION ||--o| CONTEST_RESOLUTION_EVENT : "contested_relation"
@@ -35,14 +35,20 @@ erDiagram
 
 ### attempt_outcome_event（append-only）
 - PK `id`；**UNIQUE(`attempt_id`)**（R5-02 恰一终态）
-- FK `attempt_started_id → collection_attempt.id`
+- FK `attempt_id → collection_attempt.id`
 - `outcome ∈ {SUCCESS,PARTIAL,SOURCE_ERROR,TRANSPORT_ERROR,TIMEOUT,ABORTED}` CHECK
 - `response_bytes_received` boolean；`completed_at` NOT NULL
-- **`error_body_hash`（收到错误体必填）· `error_body_ref`（blob_key，仅 retention_class=RAW_RETAINED）· `retention_class`**（许可约束留存）
+- **`error_body_hash` / `error_body_ref` / `retention_class`**（许可约束留存）：
+  - FK **`error_body_ref → raw_blob.blob_key`**（真实外键）
+  - CHECK：`response_bytes_received = true ⇒ error_body_hash NOT NULL`
+  - CHECK：`retention_class = RAW_RETAINED AND response_bytes_received ⇒ error_body_ref NOT NULL`
+  - CHECK：`retention_class ≠ RAW_RETAINED ⇒ error_body_ref IS NULL`（禁止留存则不留字节）
+  - 错误 Blob 的 scope 必须与本 Outcome 的 `(source_id, retention_class)` 一致（repository 强制）
 
-### attempt_receipt_link（append-only；阻断 1 新增）
-- PK `id`；**UNIQUE(`outcome_event_id`)**（每 Outcome 恰一条 Link）
+### attempt_receipt_link（append-only）
+- PK `id`；**UNIQUE(`outcome_event_id`)**（每 Outcome 至多一条 Link）
 - FK `outcome_event_id → attempt_outcome_event.id`；FK `receipt_id → raw_receipt.id`
+- **条件基数 CHECK（触发器实现）**：产生该 Link 的 Outcome 为 `SUCCESS/PARTIAL` ⇒ 恰一条 Link；`SOURCE_ERROR/TRANSPORT_ERROR/TIMEOUT/ABORTED` ⇒ 零条 Link
 - 语义：多 Attempt → 单 Receipt 的完整尝试血缘
 
 ### raw_receipt（append-only，不可 UPDATE/DELETE）
@@ -60,6 +66,12 @@ erDiagram
 ### receipt_relation（append-only，双端点）
 - PK `id`；FK `receipt_id → raw_receipt.id`；FK `related_receipt_id → raw_receipt.id`
 - `relation ∈ {SUPERSEDES, CONTESTS, DUPLICATES}` CHECK；`basis`、`creator_ref`、`created_at`
+
+### fact_resolution_event（append-only；跨源 Fact 冲突解决）
+- PK `id`；FK `fact_relation_id → fact_relation.id` NOT NULL
+- `basis ∈ {SOURCE_PRIORITY, MANUAL_AUDIT}`；`basis_version` = 策略工件内容哈希 NOT NULL
+- `resolved_fact_id → normalized_fact.id` FK；`authorization_ref` NOT NULL；`created_at`
+- SOURCE_PRIORITY 仅作本事件的冻结依据；事件前 Fact 保持无资格（Gate=UNKNOWN）
 
 ### contest_resolution_event（append-only）
 - PK `id`；FK `contested_relation → receipt_relation.id`
@@ -82,12 +94,19 @@ erDiagram
 - **TRIGGERS** = LifecycleTransition 的触发依据关系（fact_a=transition，fact_b=触发事实）
 - CONTESTED 资格判定经此表 + contest_resolution_event
 
-### interpretation_context（阻断 4 新增）
-- PK `id`；`contract_schema_hash`、`rule_artifact_id` FK→artifact_registry、
-  `source_priority_policy_artifact_id` FK→artifact_registry、
-  `eligibility_policy_artifact_id` FK→artifact_registry、
-  `parser_map jsonb`（四元组键 → {version, artifact_id FK}）、`fact_ids jsonb`、`created_at`
-- HISTORICAL 重放引用本实体；缺任一 artifact ⇒ REPLAY_ARTIFACT_MISSING
+### interpretation_context（主表；JSONB 外键已拆关系表）
+- PK `id`；`contract_artifact_id` **FK→artifact_registry**（替代裸 hash——"hash+可取回工件"）；
+  `rule_artifact_id` FK、`source_priority_policy_artifact_id` FK、
+  `eligibility_policy_artifact_id` FK（均 → artifact_registry）；`created_at`
+
+### interpretation_context_parser（关系表；替代 parser_map JSONB）
+- PK `(context_id, source_id, method_id, parser_id, fact_kind)`
+- FK `context_id → interpretation_context.id`；FK `parser_artifact_id → artifact_registry.id`
+
+### interpretation_context_fact（关系表；替代 fact_ids JSONB）
+- PK `(context_id, fact_id)`；FK `fact_id → normalized_fact.id`
+- 两者使历史回放引用的 parser 与 facts 受真实外键约束
+- HISTORICAL 回放引用主表+两关系表；缺任一 artifact ⇒ REPLAY_ARTIFACT_MISSING
 - narrative-snapshot：`subject_type='narrative'`；lifecycle-transition：`subject_type='project'`，
   `from_stage/to_stage` 受状态图工件版本约束（非法边拒入）
 
@@ -101,7 +120,9 @@ erDiagram
 - 全序 `(created_at, event_id)`；执行与 blob 删除同一受控事务/锁边界
 
 ### blob_refcount_event（append-only）
-- `delta ∈ {+1 receipt, −1 purge, RECONCILE}`；FK `blob_hash → raw_blob.hash`
+- FK **`blob_key → raw_blob.blob_key`**
+- `event_type ∈ {ADD, REMOVE, RECONCILE}`（类型）与 `delta integer`（数值）**两列分离**
+- RECONCILE 事件 附 `reconciled_count integer NOT NULL`（对账后权威计数，确定性结果字段）
 
 ### evidence_eligibility_policy（ArtifactRegistry 中的工件类型）
 - 版本化；InterpretationContext 引用其 `content_hash + content_ref`
