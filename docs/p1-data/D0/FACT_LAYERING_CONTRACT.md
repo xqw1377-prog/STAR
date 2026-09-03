@@ -1,182 +1,137 @@
-# P1-DATA-D0 · 事实分层合同（FACT LAYERING CONTRACT）· rev5
+# P1-DATA-D0 · 事实分层合同（FACT LAYERING CONTRACT）· rev6
 
 状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03
-版本链：rev1–rev4 均已替代。rev5 闭合 rev4 终审十项落表矛盾（§3.1 原子事务、§3.2 五态结局、payload 仅引用、§6 部分唯一索引、§5.5 关系表、§7 工件注册表）。前序（rev4 八阻断）内容保留。
-#1 递交一致性、#2 Attempt 两阶段化、#3 fact 唯一键扩展、#4 冲突作用域拆分、
-#5 处置状态机、#6 事实时间字段下移、#7 解释上下文完备性、#8 健康闭合（详见 DATA_HEALTH）。
+版本链：rev1–rev5 均已替代（rev5 终审以 R5-01…R5-20 裁定清单退回）。
+rev6 逐项吸收 R5 裁定；条款号即裁定号，便于回执映射。
 
-## 1. 五层模型
-
-```text
-Layer A0 AttemptStarted（发请求前持久化，append-only）
-Layer A1 AttemptOutcomeEvent（收到结果/超时/错误/中止，append-only）
-Layer R  RawReceipt（SUCCESS/PARTIAL；由 OutcomeEvent 引用；不可变）
-Layer N  NormalizedFact（append-only；单向 supersedes；每条事实自带时间语义）
-Layer P  研究投影（interpretation_context 冻结；HISTORICAL/REINTERPRET 双模式）
-```
-
-**核心禁令**：Gate/Score/页面/API 不得直接解释 Layer A/R；无响应不形成 Receipt。
-
-## 2. Layer A0 — AttemptStarted（阻断 #2：先持久化，再发请求）
-
-| 字段 | 类型 | 语义 |
-|---|---|---|
-| `id` | uuid | 行标识 |
-| `observation_key` | char(64) | 查询身份（IDEMPOTENCY §2） |
-| `collection_run_id` | uuid | 采集批次 |
-| `collection_plan_item_id` | uuid·null | **采集计划项引用（阻断 #8）**：计划项声明目标 (project, expected_fact_kind)，使失败请求也可归因到 ProjectHealth |
-| `request_params_sanitized` | jsonb | **脱敏快照**：禁止包含 API key、Authorization、签名、含凭证的 URL；脱敏在 canonical 化**之前**完成，`observation_key` 基于脱敏后形态计算（键稳定性不受影响） |
-| `attempt_origin` | enum | `INITIAL` / `RETRY` / `CRASH_REPLAY` / `SCHEDULER_REISSUE` |
-| `retry_of_attempt_id` | uuid·null | 重试链：指向所重试的 **AttemptStarted.id**（崩溃重放指向崩溃前已持久化的 Start 行——Start 先于请求存在，链条永不悬空） |
-| `started_at` | timestamptz | 持久化时刻 |
-
-约束：**在网络请求发出之前写入**；append-only；无唯一约束（绝不合并）。
-一行 = 一次将要/已经发生的物理请求。
-
-## 3. Layer A1 — AttemptOutcomeEvent（append-only，一次事件一行）
-
-| 字段 | 类型 | 语义 |
-|---|---|---|
-| `attempt_started_id` | uuid | 指向 AttemptStarted |
-| `outcome` | enum（rev5 五态，闭合矛盾 2） | `SUCCESS_RESPONSE`（收到可处理响应体）/ `HTTP_ERROR`（收到错误响应，可有体）/ `TRANSPORT_ERROR`（未收到任何响应字节）/ `TIMEOUT` / `ABORTED` —— 五态**完备分割**：占比之和恒为 1 |
-| `error_code` / `http_status` / `latency_ms` | | 遥测 |
-| `error_body_hash` / `error_body_ref` | char(64)·null / text·null | `HTTP_ERROR` 收到字节：哈希恒存；字节本体仅当 `retention_class=RAW_RETAINED` 时落 blob（受 §5 处置约束；`TRANSPORT_ERROR`/`TIMEOUT` 无体） |
-| `receipt_id` | uuid·null | `SUCCESS_RESPONSE` 时**在同一事务内**与 RawReceipt 一并落库（见 §3.1）；**任何行都不回填** |
-| `completed_at` | timestamptz | 完成/放弃时刻（健康滑窗边界） |
-
-### §3.1 回执与结局事件的原子落库（闭合矛盾 1）
-
-`SUCCESS_RESPONSE` 时，AttemptOutcomeEvent（含 receipt_id）与 RawReceipt
-（含 attempt_outcome_event_id）在**同一数据库事务**内插入；两向外键声明为
-`DEFERRABLE INITIALLY DEFERRED`，事务提交时同时满足。因此：
-不存在"回执无事件"或"事件无回执"的中间态，也不需要任何回填。
-崩溃 ⇒ 事务整体未提交 ⇒ 只有 Start 行（孤儿语义不变）。
-
-### §3.2 崩溃语义（阻断 #2，保留）
-
-请求期间崩溃 ⇒ Start 行存在、无 OutcomeEvent。
-重启后 `CRASH_REPLAY` 的 Start 以 `retry_of_attempt_id` 指向该孤儿 Start——
-"是否发出/是否到达来源端"永远如实表达为**未知**，不再声称可无损重建。
-
-## 4. Layer R — RawReceipt
-
-| 字段 | 类型 | 语义 |
-|---|---|---|
-| `id` / `observation_key` / `collection_run_id` / `attempt_outcome_event_id` | | 标识与血缘（直指产出它的 OutcomeEvent） |
-| `anchor_slot` / `anchor_time` | bigint·null / timestamptz·null | 链上/离线锚（至少其一） |
-| `observed_at` / `ingested_at` | timestamptz | **Receipt 只保留这两种时间 + 锚**（阻断 #6：effective/scheduled 全部下移到事实层） |
-| `payload_bytes_hash` | char(64) | 原始响应字节（as-received）SHA-256，必填 |
-| `payload_ref` | text | **必填（rev5，闭合矛盾 3）**：payload 字节一律存 §5.2 blob 仓，行内不再允许 `payload_inline`（行不可 UPDATE，内联字节将无法被 PURGE 清除；小载荷同样走 blob） |
-| `status` | enum | `SUCCESS` / `PARTIAL` |
-| `schema_version` / `parser_version_at_ingest` | text | 信封 `star-raw@3` / 信息性快照 |
-| `retention_class` / `license_class` | enum / text | 来源注册表快照 |
-| （rev5 矛盾 5：行内不再携带 relation 单槽） | 多重冲突/替代关系经 append-only **`receipt_relation`** 表表达：`(id, receipt_id, relation ∈ {CONTESTS, SUPERSEDES}, related_receipt_id, created_at)`——一个回执可参与任意多条关系；解决事件引用关系行（IDEMPOTENCY §4.1） |
-| `created_at` | timestamptz | 首次 ingest |
-
-## 5. 不可变性与处置状态机（阻断 #5 完整冻结）
-
-### §5.1 行级不可变
-
-RawReceipt / AttemptStarted / AttemptOutcomeEvent / NormalizedFact 一律
-**禁止 UPDATE / DELETE**（触发器 + repository 单入口）。
-
-### §5.2 blob 存放与引用计数（防错误共享）
-
-- blob 键 = `payload_bytes_hash`，但**存储命名空间包含 (source_id, retention_class)**：
-  同字节跨许可范围**不得共享物理对象**；
-- 同命名空间内允许同哈希多 Receipt 共享，配 **append-only 引用计数台账**
-  `blob_refcount_event`（`+1 receipt / −1 purge / RECONCILE`）；物理删除仅当计数归零；
-- 对账：purge worker 每次执行前后核对台账计数与实际引用数。
-
-### §5.3 处置事件完整枚举（append-only `raw_disposition_event`）
+## 1. 层次与不可变边界（R5 §1）
 
 ```text
-PURGE_REQUEST → PURGE_EXECUTED | PURGE_CANCELLED
-QUARANTINE
-HOLD
-RELEASE（target_event_id 必填：指向被释放的那条 HOLD/QUARANTINE 事件）
+Layer A0 CollectionAttempt        一次物理请求一行，永不去重（R5-07）
+Layer A1 AttemptOutcomeEvent      每 Attempt 恰一个终态（R5-02）
+Layer R  RawReceipt               由可留存响应字节形成；行不可变（R5-05）
+Layer N  NormalizedFact           append-only；血缘完整（R5-09/R5-10）
+Layer P  Evidence/Gate/Score      只消费具备 eligibility 的时点事实（R5-12）
 ```
 
-（枚举即流程 vocabulary，二者一致；不再混用两套词。）
+缺失、过期、冲突、不可验证或来源被阻断的强制事实 ⇒ 一律 UNKNOWN，
+不得静默降级为 PASS；历史回放按当时冻结的事实/规则/解析器/资格策略复现，
+**不得读取当前缓存列**；数据健康只描述采集系统，不得直接改变门禁或机会分；
+一切纠错/解决/处置/替代均为追加事件。
 
-### §5.4 per-receipt 串行租约与可恢复状态机
+## 2. Layer A0/A1 — Attempt 与终态（R5-01/02/03）
 
-- 同一 receipt 的处置操作持有 **per-receipt 租约**（DB 侧原子取得），
-  租约期内事件串行追加，消除检查-执行竞态；
-- **purge worker 状态机**：`IDLE → LEASED → BLOB_DELETING → RECORDING_EXECUTED → IDLE`。
-  崩溃恢复规则（重启收敛）：
-  1. 发现未闭合 `PURGE_REQUEST`（无 EXECUTED/CANCELLED）→ 核对 blob：
-     blob 已不存在 ⇒ 幂等补写 `PURGE_EXECUTED`（删除已完成）；
-     blob 存在且期间出现过 HOLD ⇒ 写 `PURGE_CANCELLED`；
-     blob 存在且无 HOLD ⇒ 重新取得租约，从 BLOB_DELETING 续跑；
-  2. 台账与 blob 对账差异 ⇒ 记 `blob_refcount_event(RECONCILE)` 修正事件，
-     不直接改历史；
-- **HOLD 优先级**：租约取得时与 BLOB_DELETING 前各检查一次活动 HOLD；
-  任何时刻存在活动 HOLD ⇒ PURGE 必然 CANCELLED；
-  先到事件在全序中胜出（全序 = (created_at, event_id)，IDEMPOTENCY §4.1 不变）。
+**AttemptStarted（发请求前持久化）**：`id, query_identity, collection_run_id,
+collection_plan_item_id, request_params_sanitized（脱敏快照：禁止 API key、
+Authorization、签名、含凭证 URL，脱敏先于规范化）, attempt_origin ∈
+{INITIAL, RETRY, CRASH_REPLAY, SCHEDULER_REISSUE}, retry_of_attempt_id,
+started_at`。
 
-## 6. Layer N — NormalizedFact（阻断 #3/#6）
+**AttemptOutcomeEvent（append-only）**：`attempt_id UNIQUE NOT NULL`（R5-02：
+每 Attempt **恰一个**终态；重复同一终态=幂等命中；矛盾第二终态**不得覆盖**，
+进独立审计事件并触发采集器异常状态；健康分母=Attempt，禁止双计）、
+`outcome`（六类互斥终态，R5-03）、`response_bytes_received`（独立布尔）、
+`error_code / http_status / latency_ms / completed_at`、错误体处置字段（R5-04）。
 
-| 字段 | 说明 |
+**终态枚举（R5-03 冻结）**：
+
+```text
+SUCCESS          收到可处理响应（全量）
+PARTIAL          收到可处理响应（部分）
+SOURCE_ERROR     HTTP 非成功响应（含收到错误体的情形）
+TRANSPORT_ERROR  DNS / 连接失败 / TLS / 无响应断线
+TIMEOUT          超时
+ABORTED          调用方主动终止
+```
+
+`response_bytes_received` 是**独立布尔字段**，不是终态分类；
+六类终态率之和恒为 1；`response_availability = response_bytes_received /
+attempts` 正交单列，**禁止并入**终态率求和恒等式。
+
+**错误响应字节（R5-04）**：所有收到的响应体均计 as-received SHA-256；
+blob 仅当 `retention_class` 允许时保存，否则只存 hash、长度、MIME、状态码与
+处置理由；日志/状态 API/错误提示不得输出私有 URL、认证头、查询密钥或原始错误体；
+错误响应不派生 NormalizedFact，可参与健康与取证。
+
+## 3. Layer R — RawReceipt（R5-01/05/06/07/08）
+
+| 字段 | 冻结语义 |
 |---|---|
-| `id` / `receipt_id`（SUCCESS 回执）/ `fact_kind` / `subject_mint` / `subject_project` | 基础血缘 |
-| **`fact_local_key`** | text·null；**同一回执可产出多条同 kind/subject 事实**（如多池、多锁仓账户、多解锁日）：此时必填，取值 = 载荷内天然判别键（pool 地址 / 账户 / 解锁序号）的确定性函数；单条时为 null |
-| `effective_at` / `effective_time_kind` / `scheduled_at` | **每条事实独立的时间语义**（阻断 #6）：`CHAIN_EVENT`（事件时间可知，effective_at 非空）/ `OBSERVATION_BOUND`（快照，effective_at=observed_at，"至少此刻为真"）/ `UNKNOWN`（effective_at=null）；未来计划（锁仓解锁日等）= `scheduled_at`，不得作为已发生事实进入 Evidence |
-| `payload` / `payload_hash` | 标准载荷（`star-fact-v1` 命名空间） |
-| `parser_id` / `parser_version` | 产出方标识与版本 |
-| `derived_at` | parser 运行时间 |
-| `supersedes_fact_id` | uuid·null；新行单向引用旧行；旧行永不修改 |
+| `outcome_event_id` | **UNIQUE NOT NULL，单向指向 Outcome**；Outcome **不反向保存 receipt_id**（R5-01 单向关系） |
+| `query_identity` / `observation_identity` | 见 §4（R5-07） |
+| `anchor_slot` / `anchor_time` | **DB CHECK：至少一非空**（R5-06）；两者同在必须同一观察锚，不一致⇒隔离不产事实；锚点前进=新 Receipt，不被查询身份吞并 |
+| `observed_at` / `ingested_at` | 回执仅此二时间 + 锚（事实时间在 Layer N） |
+| `payload_hash` / `payload_ref` | **payload_inline 自本版删除（R5-05）**：原始字节统一存内容寻址 RawBlob（**合成夹具同样适用**，单一处置语义）；Receipt 行不可变，Blob 按处置协议物理删除 |
+| `status` | `SUCCESS` / `PARTIAL`（与终态对应） |
+| 关系 | 行内**不设** relation 单槽；关系一律走 §5 ReceiptRelation（R5-08） |
 
-**唯一约束（阻断 #3 + rev5 矛盾 4：两个部分唯一索引，杜绝多 NULL）**：
-```sql
-CREATE UNIQUE INDEX uq_fact_single   ON normalized_fact (receipt_id, fact_kind, subject, parser_id, parser_version)
-  WHERE fact_local_key IS NULL;      -- 单事实：同键仅一行
-CREATE UNIQUE INDEX uq_fact_localkey ON normalized_fact (receipt_id, fact_kind, subject, parser_id, parser_version, fact_local_key)
-  WHERE fact_local_key IS NOT NULL;  -- 多事实：local_key 为主
-```
-（PostgreSQL 默认 UNIQUE 对 NULL 不去重，普通约束无法保证单事实幂等——故用部分索引。）
+**原子性（R5-01）**：收到可留存字节时，Outcome 与 Receipt 在**同一数据库事务**
+写入并一起提交；任何一步失败整体回滚；**禁止循环外键、事后回填、
+"先提交 Outcome 稍后补 Receipt"**。方向恒为 Receipt→Outcome→Attempt。
 
-## 7. Layer P — 解释上下文与回放（阻断 #7）
-
-每次评估冻结 `interpretation_context`：
+## 4. 身份与幂等（R5-07）
 
 ```text
-{
-  contract_schema_hash,                 // 数据契约正文的内容哈希
-  rule_artifact_hash,                   // 门禁规则工件哈希
-  source_priority_policy_hash,          // 来源优先级策略内容哈希（阻断 #4/#7）
-  parser_map: {                          // 完整映射，键为四元组：
-    "(source_id, method_id, parser_id, fact_kind)":
-      { version, artifact_hash }         // 每条含版本 + 工件内容哈希
-  },
-  fact_ids: [ … ],                       // 本次评估实际引用的全部 fact id
-  artifact_refs: {                       // rev5（闭合矛盾 9）：每个 hash 配可取回引用
-    parser_map[i].artifact_ref, contract_artifact_ref,
-    rule_artifact_ref, policy_artifact_ref
-  }
-}
+attempt_id           物理请求身份，永不去重
+query_identity       规范化请求身份（脱敏后 canonical；不含时间戳/run id/parser 版本）
+observation_identity query_identity + 网络锚点
+receipt_key          命名空间 + observation_identity + as-received payload hash
 ```
 
-**artifact 注册表（append-only、内容寻址）**：parser/rule/policy/contract 工件本体
-存入 `artifact_registry(id, kind, version, content_hash, content_ref, created_at)`；
-内容可随时取回并以 content_hash 验证——**仅有哈希不足以重演**的批评成立，
-rev5 起解释上下文的每个哈希都必须能在注册表取回工件。工件同样受 §5 处置规则约束。
+只有 `receipt_key` 完全相等才是幂等命中；重试、崩溃重放、调度重发各自产生
+新 Attempt，但**可收敛到同一 Receipt**。
 
-回放双模式（不变）+ **PURGED 语义（阻断 #7 末项）**：
-- `HISTORICAL`：按冻结 context 重算；若所依赖 blob 已被合法 PURGE，
-  **不得声称可从 raw 重算**——返回 `REPLAY_SOURCE_PURGED`，
-  只能读取当时已保存的结论快照（Layer P 本就持久化）；
-- `REINTERPRET`：当前 parser 重释，输出带 `reinterpreted=true`，不覆盖历史。
+## 5. ReceiptRelation（R5-08）
 
-## 8. 冲突的两级作用域（阻断 #4 概览，细则见 IDEMPOTENCY）
+append-only，行内单槽已删除；每条关系含独立 `id / created_at / 依据 /
+创建者或规则引用`；至少支持 `SUPERSEDES / CONTESTS / DUPLICATES`；
+同一 Receipt 可同时与多个 Receipt 建立关系。
 
-- **回执冲突**（同源同查询同锚不同字节）：CONTESTS → 冻结 UNKNOWN；
-  解决依据仅 `FINALIZED_SLOT` / `MANUAL_AUDIT`（SOURCE_PRIORITY 不适用——同 observation_key 必同源）；
-- **事实冲突**（不同来源的标准事实互相矛盾）：Layer N `fact_relations`
-  （append-only，`CONTRADICTS` 关系）表达；解释时可应用**版本化的**
-  source-priority policy（内容哈希入 interpretation_context）。
+## 6. 冲突资格（R5-09）
 
-## 9. 明确不做
+冲突 Receipt 可解析以供诊断，但其派生 Fact 标记 **CONTESTED**；
+CONTESTED Fact **不具备 gate eligibility**：强制门禁 UNKNOWN、score=null、
+readiness=RESEARCH_REQUIRED。解决仅经追加 **ContestResolutionEvent**
+（`basis, basis_version（不可变策略内容哈希）, resolved_receipt_id,
+授权/规则引用, 时间`）；解决事件不改旧 Receipt 或旧 Fact，资格投影按事件链重算。
 
-不新增页面、不接真实来源、不改六门禁与阈值、不引入钱包/签名/交易/AURORA；
-一切处置走 §5 授权事件。
+## 7. Layer N — NormalizedFact（R5-10）
+
+- **`fact_local_key` NOT NULL**：单值事实固定 `singleton`；复数事实用稳定、
+  确定性领域键（pool 地址/账户/解锁序号）；禁止"多事实时才必填"的运行时条件；
+- 主体泛化：`subject_type + subject_id`；
+- **唯一约束（统一）**：`receipt_id + fact_kind + subject_type + subject_id +
+  parser_version + fact_local_key`；不依赖 SQL 对 NULL 唯一性的数据库差异；
+- 事实时间：`effective_at / effective_time_kind / scheduled_at` 逐事实独立
+  （CHAIN_EVENT / OBSERVATION_BOUND / UNKNOWN；scheduled 仅未来安排，
+  不得作为已发生事实进门禁）；
+- 替代 = `supersedes_fact_id` 单向引用，旧行永不修改。
+
+## 8. ArtifactRegistry 与解释上下文（R5-11）
+
+append-only **ArtifactRegistry**：保存规则、parser、门禁策略、来源优先级、
+证据资格策略的 `artifact_hash / 类型 / 版本 / 存储引用 / created_at`。
+InterpretationContext **同时冻结 hash 与 artifact reference**；
+缺少任一必需 artifact 时 HISTORICAL 回放必须失败并返回
+**`REPLAY_ARTIFACT_MISSING`**，不得自动使用最新版。
+
+## 9. EvidenceEligibilityPolicy 与健康分离（R5-12）
+
+版本化 **EvidenceEligibilityPolicy**（纳入 InterpretationContext）：
+按 `asOf、来源 SLA、事实时态、冲突状态、来源许可` 判定 Fact 能否进入门禁。
+缺失/过期/不可用/冲突/被阻断的强制事实 ⇒ 门禁 UNKNOWN。Data Health 只做
+展示/调度/告警，不得传入 interpretCheck 或评分函数。
+
+## 10. PURGE 两阶段协议与两种范围（R5-14/15）
+
+- 两阶段：`PURGE_REQUESTED → PURGE_EXECUTED`；全序 `(created_at, event_id)`；
+- 请求必含 `actor、reason/legal basis、authorization_ref、scope、idempotency_key`；
+- `LEGAL_HOLD` 在执行时刻之前或执行事务内出现 ⇒ `PURGE_CANCELLED`，Blob 不删；
+  执行检查与 Blob 删除位于**同一受控事务/锁边界**，禁止检查—执行竞态；
+- 引用计数不为零或存在 HOLD ⇒ 共享 Blob 不得删除；
+- **两种范围（R5-15）**：
+  - `RAW_ONLY`：删原始 Blob；保留不含原始内容的 Fact 与历史结论；
+    fact-level HISTORICAL 复算可行，raw parser replay 返回 `RAW_SOURCE_PURGED`；
+  - `LICENSE_ERASURE`：按法律/许可范围删除受限原始与派生内容载荷；
+    仅留非内容 hash、处置审计与墓碑记录；相关历史评估返回 `REPLAY_SOURCE_PURGED`；
+- **禁止在原 payload hash 对应位置写墓碑字节**。

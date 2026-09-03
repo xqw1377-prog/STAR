@@ -4,82 +4,52 @@
 来源：外部审计 C3（Replay 使用当前 Narrative/Lifecycle = 前视泄漏）+
 终审指令"Narrative 与 Lifecycle 也是时态事实，不能继续只存在于可变缓存列"。
 
-## 1. 原则
+## 1. 原则（R5 §1）
 
-研究判断的**一切输入**（代币事实、叙事指标、生命周期阶段）都必须是时态事实。
-任何可变列（`projects.lifecycle`、`narratives.*`）只能是**当前投影缓存**，
-不得作为 Replay 或评分的真源。
+研究判断的一切输入都必须是时态事实；可变列只是当前投影缓存，
+不得作为 Replay 或评分真源（R5-18）。
 
-## 2. NarrativeSnapshot（Layer N 事实；rev5 矛盾 6：唯一键纳入来源）
+## 2. NarrativeSnapshot —— 统一事实身份（R5-16）
 
-| 字段 | 说明 |
-|---|---|
-| `id` / `narrative_id` | 标识与叙事主体 |
-| `payload` | 五维指标（novelty / velocity / breadth / onChainConfirm / survival）+ aliases |
-| `observed_at` / `ingested_at` | 三重时间之二；快照类 ⇒ `effective_time_kind = OBSERVATION_BOUND`，`effective_at = observed_at` |
-| `source` / `receipt_id` | 来源与 raw 血缘（Layer N 事实一视同仁：经 parser、可溯源、受处置规则约束） |
-| `parser_id` / `parser_version` / `payload_hash` | 解释版本与确定性 |
-| `supersedes_fact_id` | 单向替代链（旧行不改） |
+NarrativeSnapshot 作为 **Layer N 时态事实，遵循 NormalizedFact 身份与血缘规则**：
+`subject_type='narrative'`，fact_kind 专类，payload=五维指标+aliases，
+`fact_local_key`（NOT NULL，快照序号/来源内标识），
+唯一身份**必须包含 receipt/source 血缘与稳定 local key**——
+**禁止仅以 narrative_id + observed_at + parser_version 去重**。
+多来源同一时点快照**并存**；冲突按 R5-09（CONTESTED ⇒ 无资格 ⇒ UNKNOWN）处理。
+**禁止用 latestEvidenceByCheck 直接选择 NarrativeSnapshot**：
+叙事指标选择使用独立的 narrative subject + fact kind 选择器（同一时态截止与平局语义，
+独立入口防止与代币证据语义串扰）。
 
-唯一约束（rev5）：`UNIQUE (source_id, narrative_id, observed_at, parser_id, parser_version)`——
-不同来源同刻快照**并存**，跨源矛盾经 `fact_relations(CONTRADICTS)` 表达（与代币事实同一机制），
-解释时按版本化 source-priority policy 处理（策略哈希入 interpretation_context）。评分取 cutoff 前最新 Snapshot（内核
-`latestEvidenceByCheck` 同款截止+平局语义）。
+## 3. LifecycleTransition —— 合法、连续、可冲突的状态机事实（R5-17）
 
-## 3. LifecycleTransition（Layer N 事实，append-only；rev5 矛盾 7：转移图与校验冻结）
+- **冻结合法状态图及其版本**（ArtifactRegistry 工件）：规范序
+  `SEED → IGNITION → VERIFIED → ACCELERATION → CROWDING → DISTRIBUTION → DEAD`，
+  任意前向跳转合法，禁止后退，DEAD 终态；**非法边拒绝入事实层**；
+- 连续性：`from_stage` 必须等于该 cutoff 前已解析的有效 stage；**断链进入 CONTESTED**；
+- **排序键固定为 `(effective_at, observed_at, ingested_at, id)`**，各字段含义不可互换；
+- 同一前态下相互冲突的并发迁移 ⇒ **lifecycle UNKNOWN，不得晚者胜**；
+- **触发依据通过关系表引用 Fact**，禁止仅保存无法校验的 JSON id 数组；
+- CROWDING / TOO_LATE 的可决策阻断属 J0，但必须消费此时态状态，
+  **而不是 projects.lifecycle 缓存列**。
 
-**合法转移图（冻结）**：沿规范序 `SEED → IGNITION → VERIFIED → ACCELERATION → CROWDING → DISTRIBUTION → DEAD`
-**任意前向跳转合法**（如 SEED→ACCELERATION）；**禁止后退**；`DEAD` 为终态（出度为 0）。
+## 4. 历史 cutoff 双重约束（R5-18）
 
-**确定性与连续性校验（冻结）**：
-- 同刻平局沿用内核规则 `(observed_at, ingested_at, id)` 降序取后者；
-- 连续性：新 Transition 的 `from_stage` 必须等于当前（cutoff 前）`to_stage`；
-  违反 ⇒ 不丢弃，记 `continuity_violation` 并进入冲突流程（MANUAL_AUDIT 解决）；
-- 同一 (project, observed_at) 多条不同 `to_stage` ⇒ CONTRADICTS 冲突，未解决期间
-  lifecycle 投影 = UNKNOWN（fail-closed，与门禁 UNKNOWN 语义一致）。
+- HISTORICAL 只使用"**cutoff 前已观察/摄入且 cutoff 时已生效**"的事实：
+  `effective_time_kind=CHAIN_EVENT` 用链上生效时间；
+  `OBSERVATION_BOUND` 只表示"最晚于观察时已成立"；
+  `UNKNOWN` **不得被推断为更早生效**；
+- `scheduled_at` 仅描述未来安排，不能作为已发生事实进入门禁；
+- 修改或删除当前 `projects.lifecycle`、`narratives.*` 缓存**不得改变任一历史
+  cutoff 输出**（T29 缓存不变性，R5-T18 扩展为逐案例）。
 
-| 字段 | 说明 |
-|---|---|
-| `id` / `project_id` | 标识 |
-| `from_stage` / `to_stage` | 生命周期七态迁移 |
-| `trigger_fact_ids` | 触发证据（指向 NormalizedFact/报告事实，可审计） |
-| `observed_at` / `effective_time_kind` / `effective_at` | 事件可知则 CHAIN_EVENT，否则 OBSERVATION_BOUND/UNKNOWN |
-| `ingested_at` / `source` / 血缘字段 | 同上 |
+## 5. 验收测试（并入 D1-B；全量目录见 D0_ACCEPTANCE）
 
-项目在任一 cutoff 的生命周期 = **该 cutoff 前最后一条 Transition 的 `to_stage`**。
-`projects.lifecycle` 列 = 该推导的当前缓存。
+T29（缓存篡改不变性）、T30（点时事实与区分度）、R5-T16（多源快照并存
+fail-closed）、R5-T17（非法边/断链/并发冲突→拒绝或 UNKNOWN）、
+R5-T18（逐案例缓存不变性）。
 
-## 4. 禁令与回放语义
+## 6. 与外部审计的处置映射
 
-- `evaluateProjectAsOf` / Replay / 评分**禁止读取** `projects.lifecycle`、
-  `narratives.*` 当前列；只读上述两类时态事实按 cutoff 过滤后的结果
-  （C3 修复的合同化）；
-- `HISTORICAL` 回放固定三件套：**当时的 NarrativeSnapshot、当时的
-  LifecycleTransition 序列、当时的 interpretation_context**（parser/规则/策略
-  内容哈希，FACT_LAYERING §7）；三者齐备才可声称字节级复现；
-- 当前列仅供 Desk 展示与运营查询，写入路径 = 投影刷新（可随时从时态事实重建）。
-
-## 5. 验收测试（并入 D1-B）
-
-- **T29 缓存不变性**：修改/删除当前缓存列（`projects.lifecycle`、`narratives.*`）
-  后，任意历史 cutoff 的评估输出**字节级不变**；
-- **T30 点时事实**：cutoff 后新增 NarrativeSnapshot / LifecycleTransition 不影响
-  cutoff 输出；篡改 observed_at 至 cutoff 前 ⇒ 输出必须变化（区分度，独立于无前视不变量）。
-
-## 6. 与外部审计的处置映射（登记，不在本轮实现）
-
-| 审计项 | 定级 | 处置（按终审冻结顺序） |
-|---|---|---|
-| C1 Readiness 公式（现值 `READY ? score/100 : 0` 与 PRD 乘法公式不符） | High | **J0**：先冻结 `DecisionReadiness = GateBlocker × EvidenceCompleteness × OpportunityScore × LifecycleFit`（量纲/空值/CROWDING·TOO_LATE/Confidence 定义），再改实现 |
-| C2 CROWDING 项目进入 Top-K | Critical | **J0**（lifecycleFit 与队列过滤规则一并冻结）+ D1-B（lifecycle 改为时态事实后，TOO_LATE 判定基于 cutoff 时点） |
-| C3 Replay 读当前 Narrative/Lifecycle | Critical | **本合同**（D1-B 实现 T29/T30） |
-| C4 ingested 早于 observed（采集前固定 ingestedAt） | Critical-for-real-source | **D1-B**：写入前时态校验（observed ≤ ingested 强制），真源阻断期间未污染真实事实 |
-| C5 providerStatus 返回 RPC URL | Security P0 | **S0**：状态接口永不返回 URL/query/header/密钥 |
-| C6 seed/collect 无鉴权 | Security P0 | **S0**：生产默认关闭写接口；本地需显式开关+独立 token；seed 标记 destructive 且限合成库；collect 限流+project 必填+来源门禁 |
-| 其余（时区、伪 Confidence 口径、mint/freeze 理由污染、锁仓过期未检查、幂等、fixture 墙钟漂移） | 成立 | 时区/Confidence ⇒ J0；理由污染/锁仓过期 ⇒ J0/D1-B 规则细化；幂等 ⇒ rev4 已冻结（IDEM）；fixture 时钟 ⇒ D1-B 固定时钟注入 |
-
-基线更正（登记）：`ffaf938` 载体干净、代码 diff 为零；审计所述"D0 文档未提交改动"
-指向隔离中的本机 main（`5f0001a` 已 GOVERNANCE revert），不属于已审候选。
-密钥轮换提示：本仓库无 `.env`、`STAR_RPC_URL` 默认公共主网（无密钥）、测试仅绑定
-localhost；**未发现公网暴露证据**。若操作者曾在别处以含密钥 URL 暴露过本服务，
-请自行轮换（S0 前置检查项）。
+（rev5 起登记于 AUDIT_DISPOSITION.md，rev6 保留并按 R5 §4 对齐：C3→D1-B、
+C1/C2→J0、C4→D1-B、C5/C6→S0；基线更正与密钥核查结论沿用。）
