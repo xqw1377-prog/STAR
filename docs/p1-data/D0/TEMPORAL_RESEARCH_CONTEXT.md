@@ -29,7 +29,7 @@ NarrativeSnapshot 作为 **Layer N 时态事实，遵循 NormalizedFact 身份�
 - 连续性：`from_stage` 必须等于该 cutoff 前已解析的有效 stage；**断链进入 CONTESTED**；
 - **排序键固定为 `(effective_at, observed_at, ingested_at, id)`**，各字段含义不可互换；
 - 同一前态下相互冲突的并发迁移 ⇒ **lifecycle UNKNOWN，不得晚者胜**；
-- **触发依据通过关系表引用 Fact**，禁止仅保存无法校验的 JSON id 数组；
+- **触发依据通过 `fact_relation(relation=TRIGGERS)` 引用 Fact**（ERD 已建表；跨源矛盾为 `CONTRADICTS`），禁止仅保存无法校验的 JSON id 数组；
 - CROWDING / TOO_LATE 的可决策阻断属 J0，但必须消费此时态状态，
   **而不是 projects.lifecycle 缓存列**。
 

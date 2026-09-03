@@ -28,16 +28,21 @@ Authorization、签名、含凭证 URL，脱敏先于规范化）, attempt_origi
 started_at`。
 
 **AttemptOutcomeEvent（append-only）**：`attempt_id UNIQUE NOT NULL`（R5-02：
-每 Attempt **恰一个**终态；重复同一终态=幂等命中；矛盾第二终态**不得覆盖**，
-进独立审计事件并触发采集器异常状态；健康分母=Attempt，禁止双计）、
+每 Attempt **最多一个** OutcomeEvent——完成态恰一终态，IN_FLIGHT/UNRESOLVED 无事件；
+重复同一终态=幂等命中；矛盾第二终态**不得覆盖**，进独立审计事件并触发采集器
+异常状态；健康分母=Attempt，禁止双计）、
 `outcome`（六类互斥终态，R5-03）、`response_bytes_received`（独立布尔）、
 `error_code / http_status / latency_ms / completed_at`、错误体处置字段（R5-04）。
 
-**Attempt 生命周期状态（闭合孤儿矛盾）**：`IN_FLIGHT`（已 Start、租约期内、尚无终态）
-→ 六类终态之一；超过租约仍无终态 ⇒ `UNRESOLVED`（孤儿）。
-`UNRESOLVED` 不是终态：终态率分母=**窗口内有终态的 Attempt**（见 DATA_HEALTH §3）；
-孤儿经 `unresolved_rate` 单列（分母=同窗全部 Start），二者不混。
-崩溃后由 CRASH_REPLAY Start 以 retry 链指向孤儿；孤儿本身永不补写终态。
+**Attempt 生命周期状态（阻断 2 修正语义）**：
+- **每个 Attempt 最多一个 AttemptOutcomeEvent；完成的 Attempt 恰有一个终态；
+  `IN_FLIGHT` / `UNRESOLVED` 可以没有 Outcome**（孤儿与"最多一个"不再矛盾）；
+- `IN_FLIGHT` = 已 Start 且 `now ≤ lease_expires_at` 且无 Outcome；
+- `UNRESOLVED` = `now > lease_expires_at` 且无 Outcome（**确定性时点谓词**：
+  历史健康复现以窗口收盘时刻计算该谓词为准）；
+- `lease_expires_at` 是 CollectionAttempt 的**冻结字段**（Start 时写入租约到期时刻）；
+- 终态率分母 = 窗口内有终态的 Attempt；孤儿经 `unresolved_rate` 单列（DATA_HEALTH §3）；
+- 崩溃后由 CRASH_REPLAY Start 以 retry 链指向孤儿；孤儿永不补写终态。
 
 **终态枚举（R5-03 冻结）**：
 
@@ -63,17 +68,26 @@ blob 仅当 `retention_class` 允许时保存，否则只存 hash、长度、MIM
 
 | 字段 | 冻结语义 |
 |---|---|
-| `outcome_event_id` | **UNIQUE NOT NULL，单向指向 Outcome**；Outcome **不反向保存 receipt_id**（R5-01 单向关系） |
+| `creator_outcome_event_id` | **UNIQUE NOT NULL**：首次创建本回执的 Outcome（血缘锚点；**不承载完整多次尝试血缘**——那由 AttemptReceiptLink 承载） |
 | `query_identity` / `observation_identity` | 见 §4（R5-07） |
 | `anchor_slot` / `anchor_time` | **DB CHECK：至少一非空**（R5-06）；两者同在必须同一观察锚，不一致⇒隔离不产事实；锚点前进=新 Receipt，不被查询身份吞并 |
 | `observed_at` / `ingested_at` | 回执仅此二时间 + 锚（事实时间在 Layer N） |
-| `payload_hash` / `payload_ref` | **payload_inline 自本版删除（R5-05）**：原始字节统一存内容寻址 RawBlob（**合成夹具同样适用**，单一处置语义）；Receipt 行不可变，Blob 按处置协议物理删除 |
+| `payload_hash` / `payload_ref` | **payload_inline 自本版删除（R5-05）**；`payload_ref` = **完整 scoped blob_key**；原始字节统一存 RawBlob（**合成夹具同样适用**）；Receipt 行不可变，Blob 按处置协议物理删除 |
+| **blob 身份（阻断 3 冻结）** | `blob_key = SHA256(scope ‖ payload_hash)`，`scope = (source_id, retention_class)`；RawBlob 主键 = `blob_key`——相同字节跨许可范围天然生成不同物理对象，「不共享」可执行 |
 | `status` | `SUCCESS` / `PARTIAL`（与终态对应） |
 | 关系 | 行内**不设** relation 单槽；关系一律走 §5 ReceiptRelation（R5-08） |
 
-**原子性（R5-01）**：收到可留存字节时，Outcome 与 Receipt 在**同一数据库事务**
-写入并一起提交；任何一步失败整体回滚；**禁止循环外键、事后回填、
-"先提交 Outcome 稍后补 Receipt"**。方向恒为 Receipt→Outcome→Attempt。
+**AttemptReceiptLink（阻断 1 修正：多 Attempt → 单 Receipt 的完整血缘）**：
+
+append-only 链接表 `(id, outcome_event_id UNIQUE NOT NULL, receipt_id NOT NULL,
+created_at)`——每次"收到可留存字节"都产生一条 Link；`receipt_key` 幂等命中时
+**不新建 Receipt，但仍写入新 Link**，从而重试/崩溃重放/调度重发的多次 Attempt
+全部挂到同一 Receipt，血缘不断裂。方向恒为
+`CollectionAttempt → Outcome(≤1) → AttemptReceiptLink(每 Outcome 一条) → RawReceipt(可被多 Link 引用)`。
+
+**原子性（R5-01）**：收到可留存字节时，Outcome、（如新键）Receipt、AttemptReceiptLink
+在**同一数据库事务**写入并一起提交；任何一步失败整体回滚；
+**禁止循环外键、事后回填、先提交 Outcome 稍后补 Receipt**。
 
 ## 4. 身份与幂等（R5-07）
 

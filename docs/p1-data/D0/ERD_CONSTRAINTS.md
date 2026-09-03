@@ -8,9 +8,11 @@
 
 ```mermaid
 erDiagram
-  COLLECTION_ATTEMPT ||--o| ATTEMPT_OUTCOME_EVENT : "attempt_id UNIQUE"
-  ATTEMPT_OUTCOME_EVENT ||--o| RAW_RECEIPT : "outcome_event_id UNIQUE（Receipt 指向 Outcome）"
-  RAW_RECEIPT }o--|| RAW_BLOB : "payload_hash"
+  COLLECTION_ATTEMPT ||--o| ATTEMPT_OUTCOME_EVENT : "attempt_id UNIQUE（最多一个）"
+  ATTEMPT_OUTCOME_EVENT ||--|| ATTEMPT_RECEIPT_LINK : "outcome_event_id UNIQUE"
+  ATTEMPT_RECEIPT_LINK }o--|| RAW_RECEIPT : "receipt_id（多 Link 可指同一 Receipt）"
+  RAW_RECEIPT }o--|| RAW_BLOB : "blob_key（scoped）"
+  RAW_RECEIPT ||--o| RAW_RECEIPT : "creator_outcome_event_id（首次创建锚点）"
   RAW_RECEIPT ||--o{ RECEIPT_RELATION : "任一端点"
   RECEIPT_RELATION }o--|| RAW_RECEIPT : "另一端点"
   RECEIPT_RELATION ||--o| CONTEST_RESOLUTION_EVENT : "contested_relation"
@@ -26,6 +28,7 @@ erDiagram
 
 ### collection_attempt（Start；append-only）
 - PK `id`；无 UNIQUE（永不去重）
+- **`lease_expires_at` NOT NULL**（UNRESOLVED 确定性谓词时点）
 - FK `retry_of_attempt_id → collection_attempt.id`（自引用，可空）
 - `attempt_origin ∈ {INITIAL,RETRY,CRASH_REPLAY,SCHEDULER_REISSUE}` CHECK
 - `request_params_sanitized` CHECK：键名黑名单校验（api_key/authorization/signature/url-credential）由 repository 强制
@@ -35,16 +38,23 @@ erDiagram
 - FK `attempt_started_id → collection_attempt.id`
 - `outcome ∈ {SUCCESS,PARTIAL,SOURCE_ERROR,TRANSPORT_ERROR,TIMEOUT,ABORTED}` CHECK
 - `response_bytes_received` boolean；`completed_at` NOT NULL
+- **`error_body_hash`（收到错误体必填）· `error_body_ref`（blob_key，仅 retention_class=RAW_RETAINED）· `retention_class`**（许可约束留存）
+
+### attempt_receipt_link（append-only；阻断 1 新增）
+- PK `id`；**UNIQUE(`outcome_event_id`)**（每 Outcome 恰一条 Link）
+- FK `outcome_event_id → attempt_outcome_event.id`；FK `receipt_id → raw_receipt.id`
+- 语义：多 Attempt → 单 Receipt 的完整尝试血缘
 
 ### raw_receipt（append-only，不可 UPDATE/DELETE）
-- PK `id`；**UNIQUE(`receipt_key`)**；**UNIQUE(`outcome_event_id`)**（单向指向）
-- FK `outcome_event_id → attempt_outcome_event.id`（唯一化即 1:1）
+- PK `id`；**UNIQUE(`receipt_key`)**
+- **`creator_outcome_event_id` UNIQUE NOT NULL** → FK `attempt_outcome_event.id`（首次创建锚点；完整血缘走 Link 表）
 - **CHECK (`anchor_slot IS NOT NULL OR anchor_time IS NOT NULL`)**（R5-06）
 - CHECK（双锚同在时一致性由采集器断言，违例入隔离表，不落本表）
 - `status ∈ {SUCCESS,PARTIAL}`；`payload_hash` NOT NULL；`payload_ref` NOT NULL（无 inline）
 
-### raw_blob（内容寻址仓）
-- PK `hash`；`scope = (source_id, retention_class)` 入键/命名空间（跨范围不共享）
+### raw_blob（scoped 内容寻址仓；阻断 3 修正）
+- **`blob_key = SHA256(scope ‖ payload_hash)`，PK(`blob_key`)**；`scope = (source_id, retention_class)`
+- 同字节跨 scope ⇒ 不同 blob_key ⇒ 不同物理对象（「不共享」由键构造保证）
 - `length`、`mime`、`created_at`；物理删除仅经处置协议 + 引用计数归零
 
 ### receipt_relation（append-only，双端点）
@@ -64,6 +74,20 @@ erDiagram
 - **UNIQUE(`receipt_id, fact_kind, subject_type, subject_id, parser_version, fact_local_key`)**（R5-10；`fact_local_key` NOT NULL，单值='singleton'）
 - `effective_time_kind ∈ {CHAIN_EVENT,OBSERVATION_BOUND,UNKNOWN}` CHECK
 - FK `supersedes_fact_id → normalized_fact.id`（自引用可空）
+- **FK `parser_artifact_id → artifact_registry.id` NOT NULL**（真实外键到 parser 工件）
+
+### fact_relation（append-only；阻断 4 新增）
+- PK `id`；FK `fact_a → normalized_fact.id`；FK `fact_b → normalized_fact.id`
+- `relation ∈ {CONTRADICTS, SUPERSEDES, TRIGGERS}` CHECK
+- **TRIGGERS** = LifecycleTransition 的触发依据关系（fact_a=transition，fact_b=触发事实）
+- CONTESTED 资格判定经此表 + contest_resolution_event
+
+### interpretation_context（阻断 4 新增）
+- PK `id`；`contract_schema_hash`、`rule_artifact_id` FK→artifact_registry、
+  `source_priority_policy_artifact_id` FK→artifact_registry、
+  `eligibility_policy_artifact_id` FK→artifact_registry、
+  `parser_map jsonb`（四元组键 → {version, artifact_id FK}）、`fact_ids jsonb`、`created_at`
+- HISTORICAL 重放引用本实体；缺任一 artifact ⇒ REPLAY_ARTIFACT_MISSING
 - narrative-snapshot：`subject_type='narrative'`；lifecycle-transition：`subject_type='project'`，
   `from_stage/to_stage` 受状态图工件版本约束（非法边拒入）
 

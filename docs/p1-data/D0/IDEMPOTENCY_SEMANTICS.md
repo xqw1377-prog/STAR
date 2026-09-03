@@ -23,14 +23,14 @@ receipt_key          命名空间 + observation_identity + as-received payload h
 | A# | 事件 | 动作 |
 |---|---|---|
 | A0 | 发请求前 | 持久化 AttemptStarted（origin/retry 链/plan_item/脱敏参数） |
-| A1 | 收到可处理响应 | 同事务写入 Outcome(SUCCESS 或 PARTIAL) 与 RawReceipt（方向：Receipt→Outcome，Outcome 不存 receipt_id） |
+| A1 | 收到可处理响应 | 同事务写入 Outcome(SUCCESS 或 PARTIAL)、（新键时）RawReceipt、**AttemptReceiptLink**；幂等命中 ⇒ 不新建 Receipt 但**必写新 Link**（多 Attempt→单 Receipt 血缘） |
 | A2 | HTTP 非成功响应 | Outcome(SOURCE_ERROR, response_bytes_received, error_body_hash…)；无 Receipt |
 | A3 | DNS/连接/TLS/断线 | Outcome(TRANSPORT_ERROR)；无 Receipt |
 | A4 | 超时 | Outcome(TIMEOUT)；无 Receipt；门禁维持 UNKNOWN（fail-closed） |
 | A5 | 调用方终止 | Outcome(ABORTED)；无 Receipt |
 | A6 | 进程崩溃 | Start 存在、无 Outcome（孤儿）；重启 CRASH_REPLAY 指向孤儿 Start；结果如实未知 |
 
-每 Attempt 恰一个终态（`attempt_id UNIQUE`）；重复同一终态=幂等命中；
+每 Attempt **最多一个** OutcomeEvent（完成态恰一终态；IN_FLIGHT/UNRESOLVED 无事件；`attempt_id UNIQUE`）；重复同一终态=幂等命中；
 矛盾第二终态不得覆盖（审计事件 + 采集器异常状态）。
 
 ## 3. Receipt 层判定
@@ -65,6 +65,8 @@ receipt_key          命名空间 + observation_identity + as-received payload h
 
 - RawReceipt：`UNIQUE(receipt_key)` + `ON CONFLICT DO NOTHING`；
 - AttemptOutcomeEvent：`UNIQUE(attempt_id)`；
+- AttemptReceiptLink：`UNIQUE(outcome_event_id)`（每 Outcome 恰一条 Link；Receipt 可被多 Link 引用）；
+- CollectionAttempt：`lease_expires_at` NOT NULL（UNRESOLVED 确定性时点谓词）；
 - NormalizedFact：`UNIQUE(receipt_id, fact_kind, subject_type, subject_id,
   parser_version, fact_local_key)`（fact_local_key NOT NULL，单值=singleton）；
 - Start/Outcome 无去重键；处置/解决/关系事件 append-only。

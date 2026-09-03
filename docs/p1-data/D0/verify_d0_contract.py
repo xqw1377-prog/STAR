@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""D0 rev6 合同断言脚本（零依赖；在 repo 根执行：python3 docs/p1-data/D0/verify_d0_contract.py）
+"""D0 合同 lint 脚本（零依赖；repo 根执行：python3 docs/p1-data/D0/verify_d0_contract.py）
 
-MUST：R5-01..R5-20 关键条款在正文可检索。
-FORBIDDEN：已被 R5 废除的旧合同措辞必须为 0（全部包内 .md 文件）。
+定位：**快速 lint，不是合同一致性证明**——关键词/结构断言只能捕获已知矛盾模式，
+语义一致性仍需人工交叉评审（rev6 终审教训：关键词全绿仍存在结构性矛盾）。
+MUST：关键条款与结构实体在正文可检索。
+FORBIDDEN：已废除的旧措辞必须为 0（全部包内 .md）。
 退出码：0 = 全部通过；1 = 存在缺失/残留。
 """
 import os
@@ -12,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 MUST = [
     # (file, needle, tag)
-    ("FACT_LAYERING_CONTRACT.md", "不反向保存 receipt_id", "R5-01"),
+    ("FACT_LAYERING_CONTRACT.md", "先提交 Outcome 稍后补 Receipt", "R5-01"),
     ("FACT_LAYERING_CONTRACT.md", "同一数据库事务", "R5-01"),
     ("FACT_LAYERING_CONTRACT.md", "禁止循环外键", "R5-01"),
     ("FACT_LAYERING_CONTRACT.md", "attempt_id UNIQUE NOT NULL", "R5-02"),
@@ -51,7 +53,7 @@ MUST = [
     ("TEMPORAL_RESEARCH_CONTEXT.md", "非法边拒绝入事实层", "R5-17"),
     ("TEMPORAL_RESEARCH_CONTEXT.md", "断链进入 CONTESTED", "R5-17"),
     ("TEMPORAL_RESEARCH_CONTEXT.md", "排序键固定为 `(effective_at, observed_at, ingested_at, id)`", "R5-17"),
-    ("TEMPORAL_RESEARCH_CONTEXT.md", "关系表引用 Fact", "R5-17"),
+    ("TEMPORAL_RESEARCH_CONTEXT.md", "禁止仅保存无法校验的 JSON id 数组", "R5-17"),
     ("TEMPORAL_RESEARCH_CONTEXT.md", "cutoff 时已生效", "R5-18"),
     ("TEMPORAL_RESEARCH_CONTEXT.md", "不得被推断为更早生效", "R5-18"),
     ("IDEMPOTENCY_SEMANTICS.md", "SOURCE_PRIORITY", "R5-09"),
@@ -82,9 +84,35 @@ MUST = [
     ("ERD_CONSTRAINTS.md", "blob_refcount_event", "项4"),
     ("ERD_CONSTRAINTS.md", "artifact_registry", "项4"),
     ("README.md", "rev6            = CURRENT", "项6"),
+    ("FACT_LAYERING_CONTRACT.md", "AttemptReceiptLink", "终审阻断1"),
+    ("FACT_LAYERING_CONTRACT.md", "最多一个 AttemptOutcomeEvent", "终审阻断2"),
+    ("FACT_LAYERING_CONTRACT.md", "lease_expires_at", "终审阻断2"),
+    ("FACT_LAYERING_CONTRACT.md", "blob_key = SHA256(scope ‖ payload_hash)", "终审阻断3"),
+    ("FACT_LAYERING_CONTRACT.md", "creator_outcome_event_id", "终审阻断1"),
+    ("IDEMPOTENCY_SEMANTICS.md", "必写新 Link", "终审阻断1"),
+    ("IDEMPOTENCY_SEMANTICS.md", "lease_expires_at", "终审阻断2"),
+    ("DATA_HEALTH_MODEL.md", "Data Health 无研究判断权", "终审阻断5"),
+    ("DATA_HEALTH_MODEL.md", "不得写入或覆盖 readiness", "终审阻断5"),
+    ("DATA_HEALTH_MODEL.md", "EvidenceEligibilityPolicy → 判定事实是否有效", "终审阻断5"),
+    ("TEMPORAL_RESEARCH_CONTEXT.md", "fact_relation(relation=TRIGGERS)", "终审阻断4"),
+    ("ERD_CONSTRAINTS.md", "attempt_receipt_link", "终审阻断4"),
+    ("ERD_CONSTRAINTS.md", "blob_key = SHA256(scope ‖ payload_hash)", "终审阻断3"),
+    ("ERD_CONSTRAINTS.md", "### fact_relation", "终审阻断4"),
+    ("ERD_CONSTRAINTS.md", "### interpretation_context", "终审阻断4"),
+    ("ERD_CONSTRAINTS.md", "error_body_hash", "终审阻断4"),
+    ("ERD_CONSTRAINTS.md", "parser_artifact_id", "终审阻断4"),
+    ("ERD_CONSTRAINTS.md", "lease_expires_at", "终审阻断2"),
+    ("ERD_CONSTRAINTS.md", "PK(`blob_key`)", "终审阻断3"),
+    ("README.md", "DESIGN PACKAGE（rev6）", "终审阻断6"),
 ]
 
 FORBIDDEN = [
+    "恰一个**终态",            # 旧"恰一终态"表述（阻断2 矛盾源）
+    "PK `hash`",              # blob 全局主键（阻断3）
+    "健康恶化最多把 readiness",  # 越权表述（阻断5）
+    "DESIGN PACKAGE（rev2）",
+    "DESIGN PACKAGE（rev4）",
+    "degraded 优先级",
     "SUCCESS_RESPONSE",
     "RESPONSE_RECEIVED",
     "HTTP_ERROR/",          # 旧五态 HTTP_ERROR 类

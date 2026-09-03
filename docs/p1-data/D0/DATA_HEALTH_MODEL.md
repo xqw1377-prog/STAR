@@ -9,8 +9,10 @@
 1. **数据健康永远不是项目风险分数。** 健康只描述"我们的观察能力"，
    门禁只裁决"项目的事实"。类型层面隔离：健康对象不进入 `interpretCheck`、
    不进入 `scoringAllowed`、不进入任何门禁载荷。
-2. **数据缺失不能把 UNKNOWN 变 PASS。** 健康恶化最多把 readiness 展示为
-   `RESEARCH_REQUIRED`（fail-closed 本义），绝不改变任何 gate 状态。
+2. **Data Health 无研究判断权。** 边界（R5-12）：Data Health → 展示/调度/告警；
+   EvidenceEligibilityPolicy → 判定事实是否有效；Gate/J0 → 基于有效事实产生
+   UNKNOWN / readiness。**Data Health 不得写入或覆盖 readiness**，也不得改变任何
+   gate 状态；数据缺失之所以表现为 UNKNOWN，是 eligibility 层的结论，非健康层的。
 
 ## 2. 度量对象
 
@@ -41,7 +43,8 @@
 恒等式：**六率之和 = 1**（在"有终态"子总体上完备分割——孤儿不含终态，
 不入分母，故与恒等式不矛盾）。
 **`unresolved_rate`（孤儿单列）** = `UNRESOLVED Start 数 / 同窗全部 Start 数`
-（按 `started_at` 落窗；零 Start ⇒ null）。
+（按 `started_at` 落窗；零 Start ⇒ null；UNRESOLVED 判定 = 窗口收盘时刻
+`now > lease_expires_at AND 无 Outcome` 的确定性谓词，历史可复现）。
 **`response_availability` 单独计算** = `response_bytes_received / 有终态 Attempt`
 （独立布尔，与 SOURCE_ERROR 等类别**可重叠**），**不参与终态率求和**。
 
