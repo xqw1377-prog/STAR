@@ -32,9 +32,14 @@ Layer P  Evidence / Gate / Score（研究投影；HISTORICAL / REINTERPRET 两�
 | `outcome` | enum | `RESPONSE_RECEIVED` / `TIMEOUT` / `ERROR` / `ABORTED` |
 | `error_code` | text·null | TIMEOUT/ERROR 的机器可读原因 |
 | `receipt_id` | uuid·null | `RESPONSE_RECEIVED` 时指向 RawReceipt；其余为 null |
+| `attempt_origin` | enum | `INITIAL` / `RETRY` / `CRASH_REPLAY` / `SCHEDULER_REISSUE`（裁定终检 #2：区分一次物理请求、客户端重试、进程崩溃后重放、调度器补发） |
+| `retry_of_attempt_id` | uuid·null | 重试链：指向本 attempt 所重试的前一次 attempt；INITIAL 为 null |
+| `error_body_hash` / `error_body_ref` | char(64)·null / text·null | **HTTP 错误响应若实际收到字节**（终检 #1）：至少存哈希；字节本体仅在 `retention_class` 允许 RAW_RETAINED 时落 blob，受 §4 处置规则约束 |
 | `created_at` | timestamptz | 行创建（写入发生在请求完成时，行本身不可变） |
 
 约束：**无任何唯一约束、绝不去重**——同一查询的重试每次都是新 Attempt（裁定 #1）。
+一行 = 一次物理请求；`attempt_origin` + `retry_of_attempt_id` 链可无损重建
+"原始请求 → 客户端重试 → 崩溃重放"的完整序列（终检 #2）。
 Layer A 的唯一消费者是数据健康模型与采集调度。
 
 ## 3. Layer R — RawReceipt 字段合同（冻结）
@@ -86,11 +91,23 @@ Layer A 的唯一消费者是数据健康模型与采集调度。
 | `created_at` | 事件时间 |
 
   - **PURGE**：**物理删除 blob 文件**；Receipt 行原样保留，`payload_bytes_hash`
-    作为"删除前存在过"的证明；读取层 join 处置链后返回 `PURGED`（读不到字节）——
-    **绝不在原 hash 键下写墓碑**（内容寻址完整性不可破坏）；
+    作为「删除前存在过」的证明；读取层 join 处置链后返回 `PURGED`（读不到字节）。
+    **禁止**：在原 hash 键下覆盖、写墓碑、改字节或复用该键装别的对象。
+    内容寻址对象一旦写出，键与历史哈希永不被改写。新对象只用新哈希。
   - **QUARANTINE**：行排除出重放与派生，字节保留取证；
   - **HOLD**：活动 HOLD **阻止**对同一 receipt 执行 PURGE（优先级最高）；
   - 无处置事件引用的任何行状态变化被触发器拒绝（静默迁移不存在）。
+
+### §4.1 处置事件全序与并发竞态（终检 #4）
+
+- 同一 receipt 的处置事件按 **(created_at, event_id) 全序**排序，无并发歧义；
+- **PURGE 两阶段**：`PURGE_REQUEST` 事件 → 物理删除 → `PURGE_EXECUTED` 事件。
+  执行条件：在全序区间 `[PURGE_REQUEST, PURGE_EXECUTED)` 内**不存在**任何
+  针对同一 receipt 的 `HOLD` 事件；存在则 PURGE 取消（记录 `PURGE_CANCELLED`）；
+- 并发 HOLD vs PURGE_REQUEST：按全序**先到者胜**——HOLD 在前 ⇒ 阻断；
+  PURGE_REQUEST 在前且已完成执行 ⇒ HOLD 只影响后续（字节已删，hash 留证）；
+- `QUARANTINE`/`RELEASE` 单阶段，按全序幂等叠加，当前状态 = 最后一条事件；
+- 触发器以全序区间检查实现，杜绝"检查-执行"窗口竞态。
 
 ## 5. Layer N — NormalizedFact 字段合同（裁定 #2 重构）
 
@@ -106,7 +123,17 @@ Layer A 的唯一消费者是数据健康模型与采集调度。
 
 - 原 `superseded_by`（旧行回填）设计**废除**——那需要 UPDATE，违反 append-only；
 - 替代链沿 `supersedes_fact_id` 正向遍历即可重建任意时点版本序列；
-- 更复杂关系图（多对多）将来经独立 append-only `fact_relations` 表扩展，非本阶段。
+- **append-only fact relation**：CONTESTS / SUPERSEDES 不改已存在的 fact 或 receipt 行。
+  关系本身是新插入的 `fact_relations`（及 RawReceipt 上仅写在**新行**的 `relation`/`relates_to`）：
+
+  | 字段 | 说明 |
+  |---|---|
+  | `id` | 关系行，插入后禁止 UPDATE/DELETE |
+  | `kind` | `CONTESTS` / `SUPERSEDES` |
+  | `from_fact_id` / `to_fact_id` | 新 → 旧（或对等冲突两端） |
+  | `created_at` | 写入时间 |
+
+  禁止在旧 fact 上回填指针。更复杂多对多只许再追加关系行，不许改旧行。
 
 ## 6. Layer P — 投影与回放（裁定 #4 重构）
 

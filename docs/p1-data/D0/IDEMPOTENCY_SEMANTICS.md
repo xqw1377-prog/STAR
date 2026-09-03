@@ -17,10 +17,18 @@ parser 策略冻结与双回放模式（#4）。
 **规则 R0**：`observation_key` 永不单独充当去重键；同一查询在后续 slot 的新观察
 是正常新事实（§4 #4）。
 
-**规则 R0a（裁定 #1）**：**Attempt 无键、无唯一约束、永不合并**。
-超时/错误重试每次都是新 Attempt——健康模型据此统计真实故障率，
-"后续重试是新的 receipt"这句话随 UNKNOWN-回执设计一并废除：
-无响应根本不形成 Receipt。
+**规则 R0a（UNKNOWN 重试身份）**：**Attempt 无键、无唯一约束、永不合并**。
+同一 `observation_key` 上的超时/错误重试：
+
+| 层 | 身份 | 重试时 |
+|---|---|---|
+| 查询 | `observation_key` | **不变**（仍是同一查询规格） |
+| 尝试 | `CollectionAttempt.id` | **新行**（每次物理请求） |
+| 回执 | `receipt_key` | **不存在**（无字节 ⇒ 无 RawReceipt） |
+| 事实 | NormalizedFact | **不产生** |
+
+废除「UNKNOWN 也是一回执、后续重试换新 receipt_key」：无响应不是观察，
+不能占用回执身份。门禁维持 UNKNOWN（fail-closed），健康模型按 Attempt 计故障。
 
 ## 2. `observation_key` 计算规范（冻结，不变）
 

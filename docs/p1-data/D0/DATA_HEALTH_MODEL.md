@@ -24,7 +24,7 @@ availability 拆分为 response availability / success / error / timeout 四率�
 
 | 指标 | 定义 | 计算源 |
 |---|---|---|
-| `response_availability` | `RESPONSE_RECEIVED / 全部 Attempt`（滑窗 1h）——收到任何字节（含 HTTP 错误响应体）即分子 | Layer A |
+| `response_availability` | `outcome=RESPONSE_RECEIVED / 全部 Attempt`（滑窗 1h）。仅「收到可成回执的响应字节」。传输/HTTP 失败计 `error_rate`，不计可用 | Layer A |
 | `success_rate` | `产出 SUCCESS Receipt 的 Attempt / 全部 Attempt` | A+R |
 | `error_rate` | `outcome=ERROR 的 Attempt / 全部 Attempt` | Layer A |
 | `timeout_rate` | `outcome=TIMEOUT 的 Attempt / 全部 Attempt` | Layer A |

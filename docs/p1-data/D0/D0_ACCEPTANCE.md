@@ -1,16 +1,18 @@
-# P1-DATA-D0 · 验收矩阵（D0 ACCEPTANCE）· rev2
+# P1-DATA-D0 · 验收矩阵（D0 ACCEPTANCE）· rev3
 
-状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03
-rev1：吸收首轮五核对点；rev2：闭合第二轮七阻断项 + 两一致性修正
-（Attempt/Receipt 拆分、supersedes 单向、CONTESTED 冻结 R2、parser 策略冻结 R3、
-处置事件化 PURGE、effective_time_kind、语料 oracle 独立与家族分组、
-payload 必填性、四率拆分）。本提交只含文档（`git show --stat` = `docs/p1-data/D0/**`）。
+```text
+P1-DATA-D0 rev1 = CHANGES-REQUIRED
+P1-DATA-D0 rev2 = AUTHORIZED / DOCS-ONLY
+```
+
+状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03  
+本提交只含 `docs/p1-data/D0/**`。`c83e2ae` 因合同阻断退回，保留作审计档案。
 
 | # | D0 门禁 | 设计条款 | D1 证明测试 |
 |---|---|---|---|
 | 1 | Raw 回执不可 UPDATE/DELETE；授权处置走事件链 | FACT_LAYERING §4（触发器；`raw_disposition_event`；PURGE 物理删 blob、hash 留证、HOLD 阻断） | `T01`：① 普通 UPDATE/DELETE 被拒 ② 授权 PURGE：行原样、blob 删除、事件在链 ③ HOLD 期间 PURGE 被拒 |
 | 2 | 重复采集不重复生成回执/事实 | IDEMPOTENCY §4#1、§6 | `T02`：同回执 N 次采集 → 1 回执、fact 不变 |
-| 3 | 新版本保留完整血缘且旧行零修改 | FACT_LAYERING §5（`supersedes_fact_id` 单向） | `T03a`：替代后旧行字节不变、链可遍历 |
+| 3 | 新版本保留完整血缘且旧行零修改 | FACT_LAYERING §5（`supersedes_fact_id` + append-only `fact_relations`） | `T03a`：替代后旧行字节不变、链可遍历、旧行无回填 |
 | 4 | Evidence 溯源到 raw hash/parser/rule 版本 | FACT_LAYERING §6（interpretation_context） | `T03b`：evidence → receipt → payload_hash 全链存在 |
 | 5 | 回放只见 cutoff 前事实 | FACT_LAYERING §6 + 语料 §4 | `T07a`（hindsight 增删改，cutoff 输出字节级不变） |
 | 6 | parser 重放确定；历史结论可复现 | IDEMPOTENCY §5（R3 双模式） | `T04`（重放确定性）、`T16`（HISTORICAL 字节级复现；REINTERPRET 带 `reinterpreted=true` 且不覆盖） |
@@ -20,6 +22,9 @@ payload 必填性、四率拆分）。本提交只含文档（`git show --stat` 
 | 10 | 不加页面/不接真源/不改六门阈值 | 各文档"明确不做" | `git show --stat` 仅 docs；阈值常量零 diff |
 | 11 | 语料预期独立于被测引擎 | 语料 §2（oracle import 禁令） | `T17`（import-lint）、`T07`（校准 vs golden）、`T18`（family 无跨集） |
 | 12 | engine.ts 注释修正只登记 | 下表 | 并入 D1 首个实现提交 |
+| 13 | 处置事件全序/竞态 | FACT_LAYERING §4.1 | `T20`：并发 HOLD/PURGE 按全序先到胜；两阶段执行区间含 HOLD ⇒ 取消 |
+| 14 | Attempt 可重建请求/重试/崩溃重放序列 | FACT_LAYERING §2（origin + retry 链 + error_body 留存） | `T21`：构造 INITIAL→RETRY→CRASH_REPLAY 链，序列可无损遍历 |
+| 15 | 健康零样本不伪装完美 | DATA_HEALTH §3.1 | `T22`：空窗口四率=null、degraded_reason=UNKNOWN |
 
 登记不执行：① engine.ts 头注释 → "I/O + persistence adapter; domain logic in lib/domain"（D1 首提交）；
 ② 载体规范 `git bundle create f.bundle HEAD main`（本次已采用）。
