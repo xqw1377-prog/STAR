@@ -1,4 +1,4 @@
-# P1-DATA-D0 · 时态研究上下文合同（TEMPORAL RESEARCH CONTEXT：Narrative 与 Lifecycle)· rev5
+# P1-DATA-D0 · 时态研究上下文合同（TEMPORAL RESEARCH CONTEXT：Narrative 与 Lifecycle）· rev6
 
 状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03
 来源：外部审计 C3（Replay 使用当前 Narrative/Lifecycle = 前视泄漏）+

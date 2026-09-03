@@ -52,7 +52,8 @@ receipt_key          命名空间 + observation_identity + as-received payload h
   PARTIAL/SOURCE_ERROR/TRANSPORT_ERROR/TIMEOUT/ABORTED 一律不派生事实；
 - **R2（CONTESTED 冻结）**：未解决冲突 ⇒ Gate=UNKNOWN、score=null、
   readiness=RESEARCH_REQUIRED；**禁止晚者胜**；解决仅经 ContestResolutionEvent
-  （basis ∈ FINALIZED_SLOT / MANUAL_AUDIT；basis_version = 不可变策略内容哈希）；
+  （basis ∈ FINALIZED_SLOT / SOURCE_PRIORITY / MANUAL_AUDIT；SOURCE_PRIORITY 仅作
+  已追加解决事件的冻结依据，禁止投影期即时选赢家；basis_version = 不可变策略内容哈希）；
 - **R2b**：fact 替代 = `supersedes_fact_id` 单向引用，旧行永不修改；
 - **R3（解释上下文冻结）**：InterpretationContext 冻结 parser/规则/策略/资格
   工件的 hash 与 artifact 引用（缺件 ⇒ REPLAY_ARTIFACT_MISSING）；

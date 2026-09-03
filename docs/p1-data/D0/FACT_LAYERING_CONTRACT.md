@@ -33,6 +33,12 @@ started_at`。
 `outcome`（六类互斥终态，R5-03）、`response_bytes_received`（独立布尔）、
 `error_code / http_status / latency_ms / completed_at`、错误体处置字段（R5-04）。
 
+**Attempt 生命周期状态（闭合孤儿矛盾）**：`IN_FLIGHT`（已 Start、租约期内、尚无终态）
+→ 六类终态之一；超过租约仍无终态 ⇒ `UNRESOLVED`（孤儿）。
+`UNRESOLVED` 不是终态：终态率分母=**窗口内有终态的 Attempt**（见 DATA_HEALTH §3）；
+孤儿经 `unresolved_rate` 单列（分母=同窗全部 Start），二者不混。
+崩溃后由 CRASH_REPLAY Start 以 retry 链指向孤儿；孤儿本身永不补写终态。
+
 **终态枚举（R5-03 冻结）**：
 
 ```text
@@ -92,8 +98,13 @@ append-only，行内单槽已删除；每条关系含独立 `id / created_at / �
 冲突 Receipt 可解析以供诊断，但其派生 Fact 标记 **CONTESTED**；
 CONTESTED Fact **不具备 gate eligibility**：强制门禁 UNKNOWN、score=null、
 readiness=RESEARCH_REQUIRED。解决仅经追加 **ContestResolutionEvent**
-（`basis, basis_version（不可变策略内容哈希）, resolved_receipt_id,
-授权/规则引用, 时间`）；解决事件不改旧 Receipt 或旧 Fact，资格投影按事件链重算。
+（`basis ∈ {FINALIZED_SLOT, SOURCE_PRIORITY, MANUAL_AUDIT}, basis_version
+（不可变策略内容哈希——SOURCE_PRIORITY 即所引优先级策略工件的内容哈希）,
+resolved_receipt_id, 授权/规则引用, 时间`）。
+**禁止投影期即时套用优先级选赢家**：source priority 只能作为已追加的
+ContestResolutionEvent 的冻结依据存在；事件追加前，冲突 Fact 保持不可用、
+Gate=UNKNOWN。解决事件不改旧 Receipt 或旧 Fact，资格投影按事件链重算。
+矛盾第二终态等终态异常一律入 append-only 终态异常审计事件。
 
 ## 7. Layer N — NormalizedFact（R5-10）
 

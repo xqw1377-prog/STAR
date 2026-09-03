@@ -25,7 +25,9 @@
 **聚合维度**：`source × method`（ProjectHealth 归因经 collection_plan_item_id）。
 **默认滑窗 1 小时**，以 **Outcome `completed_at` 落入窗口**为准。
 
-**六类互斥终态率**（共同分母 = 窗口内全部 Attempt；零 Attempt ⇒ 全部 null）：
+**六类互斥终态率**（共同分母 = **窗口内有终态的 Attempt**（Outcome 的
+`completed_at` 落窗）；零终态 Attempt ⇒ 六率全部 null）：
+
 
 | 指标 | 定义 |
 |---|---|
@@ -36,8 +38,11 @@
 | `timeout_rate` | TIMEOUT 占比 |
 | `aborted_rate` | ABORTED 占比 |
 
-恒等式：**六率之和 = 1**（完备分割）。
-**`response_availability` 单独计算** = `response_bytes_received / attempts`
+恒等式：**六率之和 = 1**（在"有终态"子总体上完备分割——孤儿不含终态，
+不入分母，故与恒等式不矛盾）。
+**`unresolved_rate`（孤儿单列）** = `UNRESOLVED Start 数 / 同窗全部 Start 数`
+（按 `started_at` 落窗；零 Start ⇒ null）。
+**`response_availability` 单独计算** = `response_bytes_received / 有终态 Attempt`
 （独立布尔，与 SOURCE_ERROR 等类别**可重叠**），**不参与终态率求和**。
 
 **质量指标**：
@@ -51,7 +56,6 @@
 
 ### §3.1 `degraded_reason` 是可并列集合（R5-19）
 
-**不是单值覆盖**：`LICENSE_HOLD` 与 `NO_SAMPLE` 可同时存在——
 计算输出为**原因集合**；UI 可按固定显示优先级排序，但**不得丢弃其他原因**，
 **不得把无样本显示成 0% 可用**。成员：`LICENSE_HOLD / RATE_LIMITED / TIMEOUT /
 CONFLICTED / PARSER_DEGRADED / SOURCE_ERROR / NO_SAMPLE / NONE`。

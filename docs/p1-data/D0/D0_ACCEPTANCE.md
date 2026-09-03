@@ -47,7 +47,7 @@ P1-DATA-D0 rev6      = CURRENT / DOCS-ONLY（吸收 R5-01…R5-20；测试目录
 | T19 | N 次超时 ⇒ N 组 Start+Outcome，率如实 | D1-D |
 | T20 | 处置事件全序/竞态（并入 R5-T14） | D1-A |
 | T21 | Attempt 链重建含 CRASH_REPLAY 孤儿 | D1-A |
-| T22 | 零 Attempt ⇒ 率 null；无样本不显示 0% | D1-D |
+| T22 | 零终态 Attempt ⇒ 六率 null；孤儿经 unresolved_rate；无样本不显示 0% | D1-D |
 | T23 | 两阶段：Start 先存、崩溃孤儿、无回填 | D1-A |
 | T24 | purge worker 崩溃恢复三分支收敛（并入 R5-T14） | D1-A |
 | T25 | blob 引用计数/跨范围隔离 | D1-A |
@@ -56,15 +56,11 @@ P1-DATA-D0 rev6      = CURRENT / DOCS-ONLY（吸收 R5-01…R5-20；测试目录
 | T28 | plan_item 归因：失败请求计入 ProjectHealth | D1-D |
 | T29 | 当前缓存列篡改 ⇒ 历史 cutoff 输出不变（逐案例扩展见 R5-T18） | D1-B |
 | T30 | Narrative/Lifecycle 点时事实与区分度 | D1-B |
-| T31 | （rev5 已并入 R5-T01）— | — |
-| T32 | （rev5 已并入 R5-T10/R5-T02）— | — |
-| T33 | （rev5 已并入 R5-T08）— | — |
-| T34 | （rev5 已并入 R5-T17）— | — |
-| T35 | （rev5 已并入 R5-T11）— | — |
 | R5-T01 | Outcome/Receipt 单向外键与事务原子性，逐写点崩溃无半状态 | D1-A |
 | R5-T02 | 每 Attempt 仅一终态；重复/矛盾终态不双计 | D1-A |
 | R5-T03 | 六类终态互斥求和=1；响应可用率正交 | D1-D |
-| R5-T04 | 错误体 hash 恒存，blob 受 retention/license 控制且不泄密 | S0（前置：D1-A blob 仓） |
+| R5-T04a | 泄密防线：日志/状态 API/错误提示无 URL/密钥/原始错误体 | S0 |
+| R5-T04b | 错误体 hash 恒存，blob 受 retention/license 控制留存 | D1-A |
 | R5-T05 | 无 inline payload；PURGE 后原 hash 位置无墓碑字节 | D1-A |
 | R5-T06 | 锚点至少一非空；锚点前进成新观察 | D1-A |
 | R5-T07 | 重试/崩溃重放不同 Attempt、同字节收敛同 Receipt | D1-A |
@@ -72,17 +68,22 @@ P1-DATA-D0 rev6      = CURRENT / DOCS-ONLY（吸收 R5-01…R5-20；测试目录
 | R5-T09 | 冲突未解决 Fact 无 gate 资格；解决后仅投影变化 | D1-B |
 | R5-T10 | singleton 与复数键并发写入满足统一唯一约束 | D1-A |
 | R5-T11 | 缺 artifact ⇒ HISTORICAL 明确失败 REPLAY_ARTIFACT_MISSING | D1-B |
-| R5-T12 | 过期/缺失/冲突强制证据 UNKNOWN；健康不改 Gate | D1-B（前置：J0 冻结 readiness） |
+| R5-T12a | EvidenceEligibilityPolicy：过期/缺失/冲突强制证据 ⇒ UNKNOWN；健康不改 Gate | D1-B |
+| R5-T12b | readiness 语义消费（J0 冻结后） | J0 |
 | R5-T13 | 有计划零事实 completeness=0；无计划 null；零 Attempt 率=null | D1-D（前置：J0 冻结 completeness 量纲） |
 | R5-T14 | PURGE/HOLD 全竞态序列确定收敛、无越权删除 | D1-A |
-| R5-T15 | RAW_ONLY 与 LICENSE_ERASURE 重放语义不同且正确 | D1-A（执行）/D1-B（回放断言，前置列出） |
+| R5-T15a | 双范围 PURGE 执行正确（blob/refcount/墓碑禁止） | D1-A |
+| R5-T15b | RAW_ONLY 与 LICENSE_ERASURE 重放语义不同且正确 | D1-B |
 | R5-T16 | 多源同时点 NarrativeSnapshot 并存且冲突 fail-closed | D1-B |
 | R5-T17 | Lifecycle 非法边/断链/并发冲突拒绝或 UNKNOWN | D1-B |
 | R5-T18 | 当前缓存任意篡改不改逐案例历史 cutoff | D1-B（语料断言入 D1-C 前置） |
 | R5-T19 | 健康窗口边界、零样本、多重 degraded 集合可复现 | D1-D |
 | R5-T20 | 测试—阶段映射 lint：无遗漏、无重复主归属 | 治理（CI） |
 
-注：T31–T35 为 rev5 编号，rev6 起并入对应 R5-T*（表内已注明），编号保留防断链。
+## 附录：历史编号映射（非测试、无阶段归属）
+
+T31→R5-T01 · T32→R5-T10/R5-T02 · T33→R5-T08 · T34→R5-T17 · T35→R5-T11
+（rev5 编号仅作历史对照，不再是测试条目。）
 
 ## 登记不执行
 
