@@ -1,4 +1,4 @@
-# P1-DATA-D0 · 时态研究上下文合同（TEMPORAL RESEARCH CONTEXT：Narrative 与 Lifecycle）· rev4
+# P1-DATA-D0 · 时态研究上下文合同（TEMPORAL RESEARCH CONTEXT：Narrative 与 Lifecycle)· rev5
 
 状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03
 来源：外部审计 C3（Replay 使用当前 Narrative/Lifecycle = 前视泄漏）+
@@ -10,7 +10,7 @@
 任何可变列（`projects.lifecycle`、`narratives.*`）只能是**当前投影缓存**，
 不得作为 Replay 或评分的真源。
 
-## 2. NarrativeSnapshot（Layer N 事实）
+## 2. NarrativeSnapshot（Layer N 事实；rev5 矛盾 6：唯一键纳入来源）
 
 | 字段 | 说明 |
 |---|---|
@@ -21,11 +21,22 @@
 | `parser_id` / `parser_version` / `payload_hash` | 解释版本与确定性 |
 | `supersedes_fact_id` | 单向替代链（旧行不改） |
 
-唯一约束：`UNIQUE (narrative_id, observed_at, parser_id, parser_version)`
-（同叙事同观察时刻同版本幂等）。评分取 cutoff 前最新 Snapshot（内核
+唯一约束（rev5）：`UNIQUE (source_id, narrative_id, observed_at, parser_id, parser_version)`——
+不同来源同刻快照**并存**，跨源矛盾经 `fact_relations(CONTRADICTS)` 表达（与代币事实同一机制），
+解释时按版本化 source-priority policy 处理（策略哈希入 interpretation_context）。评分取 cutoff 前最新 Snapshot（内核
 `latestEvidenceByCheck` 同款截止+平局语义）。
 
-## 3. LifecycleTransition（Layer N 事实，append-only）
+## 3. LifecycleTransition（Layer N 事实，append-only；rev5 矛盾 7：转移图与校验冻结）
+
+**合法转移图（冻结）**：沿规范序 `SEED → IGNITION → VERIFIED → ACCELERATION → CROWDING → DISTRIBUTION → DEAD`
+**任意前向跳转合法**（如 SEED→ACCELERATION）；**禁止后退**；`DEAD` 为终态（出度为 0）。
+
+**确定性与连续性校验（冻结）**：
+- 同刻平局沿用内核规则 `(observed_at, ingested_at, id)` 降序取后者；
+- 连续性：新 Transition 的 `from_stage` 必须等于当前（cutoff 前）`to_stage`；
+  违反 ⇒ 不丢弃，记 `continuity_violation` 并进入冲突流程（MANUAL_AUDIT 解决）；
+- 同一 (project, observed_at) 多条不同 `to_stage` ⇒ CONTRADICTS 冲突，未解决期间
+  lifecycle 投影 = UNKNOWN（fail-closed，与门禁 UNKNOWN 语义一致）。
 
 | 字段 | 说明 |
 |---|---|

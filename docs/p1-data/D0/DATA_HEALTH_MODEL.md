@@ -1,9 +1,8 @@
-# P1-DATA-D0 · 数据健康模型（DATA HEALTH MODEL）· rev4
+# P1-DATA-D0 · 数据健康模型（DATA HEALTH MODEL）· rev5
 
 状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03
 范围：领域模型与投影合同。**不改 Desk 页面**（视图属后续授权）。
-版本链：rev1→rev2→rev3 均已替代。rev4：闭合终审 #8（窗口/分母/零样本/ABORTED/
-degraded 优先级/Attempt→ProjectHealth 归因）。
+版本链：rev1–rev4 均已替代。rev5：Outcome 五态化（矛盾 2）、completeness 语义修正（矛盾 10）。
 
 ## 1. 两条铁律（先于一切指标）
 
@@ -27,11 +26,12 @@ degraded 优先级/Attempt→ProjectHealth 归因）。
 
 | 指标 | 定义 |
 |---|---|
-| `response_availability` | `RESPONSE_RECEIVED / 全部 Outcome`（收到任何字节，含 HTTP 错误响应体） |
-| `success_rate` | `产出 SUCCESS Receipt 的 Outcome / 全部 Outcome` |
-| `error_rate` | `outcome=ERROR / 全部 Outcome` |
-| `timeout_rate` | `outcome=TIMEOUT / 全部 Outcome` |
-| `aborted_rate` | `outcome=ABORTED / 全部 Outcome`（有样本时；含 ABORTED 进分母） |
+| `response_availability` | `(SUCCESS_RESPONSE + HTTP_ERROR) / 全部 Outcome`（收到字节即分子，rev5 五态） |
+| `success_rate` | `SUCCESS_RESPONSE / 全部 Outcome`（恒 ≤ response_availability） |
+| `http_error_rate` | `HTTP_ERROR / 全部 Outcome` |
+| `transport_error_rate` | `TRANSPORT_ERROR / 全部 Outcome` |
+| `timeout_rate` | `TIMEOUT / 全部 Outcome` |
+| `aborted_rate` | `ABORTED / 全部 Outcome` |
 
 **Receipt/Fact 层（观察质量）**：
 
@@ -53,11 +53,15 @@ degraded 优先级/Attempt→ProjectHealth 归因）。
 - **滑窗**：闭区间 `[now − 1h, now]`，按 **`AttemptOutcomeEvent.completed_at`** 计；
 - **分母** = 窗口内同一 (source_id × method_id)——ProjectHealth 维度为
   (project × fact_kind)——的全部 **AttemptOutcomeEvent**（含 ABORTED）；
-- **零样本**：窗口内 Outcome = 0 ⇒ 上述五率一律 **`null`（UNDEFINED）**，
+- **零样本**：窗口内 Outcome = 0 ⇒ 上述六率一律 **`null`（UNDEFINED）**，
   **禁止写 0**（`0` 表示"测过且为零"，`null` 表示"没有测量"）；
   同窗口 `degraded_reason = UNKNOWN`；
-- **无 SUCCESS**：`freshness = null`、`completeness = null`（同上理由）；
-- 有样本时恒等式：`response_availability + error_rate + timeout_rate + aborted_rate = 1`，
+- **freshness**：从未有过 SUCCESS 回执 ⇒ `null`（未测量）；有过但陈旧 ⇒ 随半衰期衰减至 0（测过且过期）；
+- **completeness（rev5，矛盾 10 闭合）**：分母（必采清单）> 0 前提下——
+  **零尝试** ⇒ `null`（未测量）；**有尝试但 SUCCESS 覆盖为 0** ⇒ `0`（测过且覆盖为零）；
+  有覆盖 ⇒ `covered / required`；
+- 有样本时五态完备分割恒等式（rev5，矛盾 2 闭合）：
+  `success_rate + http_error_rate + transport_error_rate + timeout_rate + aborted_rate = 1`，
   且 `success_rate ≤ response_availability`；
 - 孤儿 Start（崩溃无 Outcome）不进任何分母（结果未知 ≠ 失败），
   但计入独立的 `orphan_start_count` 遥测。
@@ -88,6 +92,6 @@ PARSER_DEGRADED=parser_health<1；SOURCE_ERROR=error_rate>0；UNKNOWN=零样本�
 
 闭合 P1-05 设计前置。D1 测试：T11（可从 A/R 全量重建）、T12（注入后四率正确
 且门禁零变化）、T13（健康数值不入 gate/score 载荷）、T19（N 次超时→N 组
-Start+Outcome、四率如实）、**T22（零样本 null / 无 SUCCESS null / ABORTED 分母）**、
+Start+Outcome、四率如实）、**T22（零样本 null、completeness 0-vs-null、五态分割恒等式；归 D，见 D0_ACCEPTANCE）**、
 **T27（degraded_reason 优先级确定性：多诱因注入输出唯一）**、
 **T28（plan_item 归因：失败请求计入 ProjectHealth）**。

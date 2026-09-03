@@ -5,7 +5,8 @@ P1-DATA-D0 rev1            = SUPERSEDED（c83e2ae）
 P1-DATA-D0 rev2            = SUPERSEDED（fbc802e）
 P1-DATA-D0 rev3            = SUPERSEDED（ffaf938；终审 CHANGES-REQUIRED：
                              递交说明与正文不一致等八项阻断）
-P1-DATA-D0 rev4            = CURRENT / DOCS-ONLY（本包）
+P1-DATA-D0 rev4            = SUPERSEDED（20c2bca）
+P1-DATA-D0 rev5            = CURRENT / DOCS-ONLY（本包）
 P1-DATA-D1                 = HOLD（A/B/C/D 分段授权，未放行）
 P1                         = NO-GO
 ```
@@ -19,6 +20,7 @@ P1                         = NO-GO
 | SYNTHETIC_CORPUS_CONTRACT.md | 50+100 合成语料：oracle 独立、无前视不变量、家族分组（real=0） |
 | DATA_HEALTH_MODEL.md | 五率与质量指标；窗口/分母/零样本；degraded 优先级；plan_item 归因 |
 | TEMPORAL_RESEARCH_CONTEXT.md | Narrative/Lifecycle 时态事实合同（C3 修复）+ 外部审计 C1–C6 处置映射 |
-| D0_ACCEPTANCE.md | 验收门禁与 D1-A/B/C/D 测试对齐（T01–T30） |
+| D0_ACCEPTANCE.md | 验收门禁与 D1-A/B/C/D 测试对齐（T01–T35） |
+| AUDIT_DISPOSITION.md | 两轮审计全量处置总账（P0-1…5/门禁确定性/工程项 → S0/J0/D1 阶段） |
 
 边界：不接真实来源（HOLD）、不新增页面、不改六门禁与阈值、不引入钱包/交易/AURORA。

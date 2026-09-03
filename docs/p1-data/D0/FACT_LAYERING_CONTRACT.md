@@ -1,7 +1,7 @@
-# P1-DATA-D0 · 事实分层合同（FACT LAYERING CONTRACT）· rev4
+# P1-DATA-D0 · 事实分层合同（FACT LAYERING CONTRACT）· rev5
 
 状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03
-版本链：rev1→rev2→rev3 均已替代。rev4 闭合终审八项阻断：
+版本链：rev1–rev4 均已替代。rev5 闭合 rev4 终审十项落表矛盾（§3.1 原子事务、§3.2 五态结局、payload 仅引用、§6 部分唯一索引、§5.5 关系表、§7 工件注册表）。前序（rev4 八阻断）内容保留。
 #1 递交一致性、#2 Attempt 两阶段化、#3 fact 唯一键扩展、#4 冲突作用域拆分、
 #5 处置状态机、#6 事实时间字段下移、#7 解释上下文完备性、#8 健康闭合（详见 DATA_HEALTH）。
 
@@ -38,13 +38,23 @@ Layer P  研究投影（interpretation_context 冻结；HISTORICAL/REINTERPRET �
 | 字段 | 类型 | 语义 |
 |---|---|---|
 | `attempt_started_id` | uuid | 指向 AttemptStarted |
-| `outcome` | enum | `RESPONSE_RECEIVED` / `TIMEOUT` / `ERROR` / `ABORTED` |
+| `outcome` | enum（rev5 五态，闭合矛盾 2） | `SUCCESS_RESPONSE`（收到可处理响应体）/ `HTTP_ERROR`（收到错误响应，可有体）/ `TRANSPORT_ERROR`（未收到任何响应字节）/ `TIMEOUT` / `ABORTED` —— 五态**完备分割**：占比之和恒为 1 |
 | `error_code` / `http_status` / `latency_ms` | | 遥测 |
-| `error_body_hash` / `error_body_ref` | char(64)·null / text·null | HTTP 错误响应若实际收到字节：哈希恒存；字节本体仅当 `retention_class=RAW_RETAINED` 时落 blob（受 §5 处置约束） |
-| `receipt_id` | uuid·null | `RESPONSE_RECEIVED` 时**在写入本事件时即携带**——Receipt 引用只存在于 OutcomeEvent，**任何行都不回填** |
+| `error_body_hash` / `error_body_ref` | char(64)·null / text·null | `HTTP_ERROR` 收到字节：哈希恒存；字节本体仅当 `retention_class=RAW_RETAINED` 时落 blob（受 §5 处置约束；`TRANSPORT_ERROR`/`TIMEOUT` 无体） |
+| `receipt_id` | uuid·null | `SUCCESS_RESPONSE` 时**在同一事务内**与 RawReceipt 一并落库（见 §3.1）；**任何行都不回填** |
 | `completed_at` | timestamptz | 完成/放弃时刻（健康滑窗边界） |
 
-崩溃语义（阻断 #2）：请求期间崩溃 ⇒ Start 行存在、无 OutcomeEvent。
+### §3.1 回执与结局事件的原子落库（闭合矛盾 1）
+
+`SUCCESS_RESPONSE` 时，AttemptOutcomeEvent（含 receipt_id）与 RawReceipt
+（含 attempt_outcome_event_id）在**同一数据库事务**内插入；两向外键声明为
+`DEFERRABLE INITIALLY DEFERRED`，事务提交时同时满足。因此：
+不存在"回执无事件"或"事件无回执"的中间态，也不需要任何回填。
+崩溃 ⇒ 事务整体未提交 ⇒ 只有 Start 行（孤儿语义不变）。
+
+### §3.2 崩溃语义（阻断 #2，保留）
+
+请求期间崩溃 ⇒ Start 行存在、无 OutcomeEvent。
 重启后 `CRASH_REPLAY` 的 Start 以 `retry_of_attempt_id` 指向该孤儿 Start——
 "是否发出/是否到达来源端"永远如实表达为**未知**，不再声称可无损重建。
 
@@ -56,11 +66,11 @@ Layer P  研究投影（interpretation_context 冻结；HISTORICAL/REINTERPRET �
 | `anchor_slot` / `anchor_time` | bigint·null / timestamptz·null | 链上/离线锚（至少其一） |
 | `observed_at` / `ingested_at` | timestamptz | **Receipt 只保留这两种时间 + 锚**（阻断 #6：effective/scheduled 全部下移到事实层） |
 | `payload_bytes_hash` | char(64) | 原始响应字节（as-received）SHA-256，必填 |
-| `payload_ref` / `payload_inline` | text / bytea·null | **至少其一，必填**；blob 存放规则见 §5.2 |
+| `payload_ref` | text | **必填（rev5，闭合矛盾 3）**：payload 字节一律存 §5.2 blob 仓，行内不再允许 `payload_inline`（行不可 UPDATE，内联字节将无法被 PURGE 清除；小载荷同样走 blob） |
 | `status` | enum | `SUCCESS` / `PARTIAL` |
 | `schema_version` / `parser_version_at_ingest` | text | 信封 `star-raw@3` / 信息性快照 |
 | `retention_class` / `license_class` | enum / text | 来源注册表快照 |
-| `relation` / `relates_to` | enum·null / uuid·null | `CONTESTS` / `SUPERSEDES`（仅同源回执间，见 IDEMPOTENCY §4） |
+| （rev5 矛盾 5：行内不再携带 relation 单槽） | 多重冲突/替代关系经 append-only **`receipt_relation`** 表表达：`(id, receipt_id, relation ∈ {CONTESTS, SUPERSEDES}, related_receipt_id, created_at)`——一个回执可参与任意多条关系；解决事件引用关系行（IDEMPOTENCY §4.1） |
 | `created_at` | timestamptz | 首次 ingest |
 
 ## 5. 不可变性与处置状态机（阻断 #5 完整冻结）
@@ -117,11 +127,14 @@ RELEASE（target_event_id 必填：指向被释放的那条 HOLD/QUARANTINE 事�
 | `derived_at` | parser 运行时间 |
 | `supersedes_fact_id` | uuid·null；新行单向引用旧行；旧行永不修改 |
 
-**唯一约束（阻断 #3）**：
-`UNIQUE (receipt_id, fact_kind, subject, parser_id, parser_version)`；
-当 `fact_local_key` 非空时改为
-`UNIQUE (receipt_id, fact_kind, subject, parser_id, parser_version, fact_local_key)`。
-parser 升级（parser_version 变化）产生新行，不与旧版本冲突；同版本重放幂等。
+**唯一约束（阻断 #3 + rev5 矛盾 4：两个部分唯一索引，杜绝多 NULL）**：
+```sql
+CREATE UNIQUE INDEX uq_fact_single   ON normalized_fact (receipt_id, fact_kind, subject, parser_id, parser_version)
+  WHERE fact_local_key IS NULL;      -- 单事实：同键仅一行
+CREATE UNIQUE INDEX uq_fact_localkey ON normalized_fact (receipt_id, fact_kind, subject, parser_id, parser_version, fact_local_key)
+  WHERE fact_local_key IS NOT NULL;  -- 多事实：local_key 为主
+```
+（PostgreSQL 默认 UNIQUE 对 NULL 不去重，普通约束无法保证单事实幂等——故用部分索引。）
 
 ## 7. Layer P — 解释上下文与回放（阻断 #7）
 
@@ -136,9 +149,18 @@ parser 升级（parser_version 变化）产生新行，不与旧版本冲突；�
     "(source_id, method_id, parser_id, fact_kind)":
       { version, artifact_hash }         // 每条含版本 + 工件内容哈希
   },
-  fact_ids: [ … ]                        // 本次评估实际引用的全部 fact id
+  fact_ids: [ … ],                       // 本次评估实际引用的全部 fact id
+  artifact_refs: {                       // rev5（闭合矛盾 9）：每个 hash 配可取回引用
+    parser_map[i].artifact_ref, contract_artifact_ref,
+    rule_artifact_ref, policy_artifact_ref
+  }
 }
 ```
+
+**artifact 注册表（append-only、内容寻址）**：parser/rule/policy/contract 工件本体
+存入 `artifact_registry(id, kind, version, content_hash, content_ref, created_at)`；
+内容可随时取回并以 content_hash 验证——**仅有哈希不足以重演**的批评成立，
+rev5 起解释上下文的每个哈希都必须能在注册表取回工件。工件同样受 §5 处置规则约束。
 
 回放双模式（不变）+ **PURGED 语义（阻断 #7 末项）**：
 - `HISTORICAL`：按冻结 context 重算；若所依赖 blob 已被合法 PURGE，
