@@ -1,4 +1,4 @@
-# P1-DATA-D0 · 验收矩阵（D0 ACCEPTANCE）· rev3
+# P1-DATA-D0 · 验收矩阵（D0 ACCEPTANCE）· rev2
 
 ```text
 P1-DATA-D0 rev1 = CHANGES-REQUIRED
@@ -29,6 +29,6 @@ P1-DATA-D0 rev2 = AUTHORIZED / DOCS-ONLY
 登记不执行：① engine.ts 头注释 → "I/O + persistence adapter; domain logic in lib/domain"（D1 首提交）；
 ② 载体规范 `git bundle create f.bundle HEAD main`（本次已采用）。
 
-D1 放行申请条件：按 A/B/C/D 四段（A：schema+不可变边界+幂等/并发 → T01/T02/T03a/T06/T14；
+D1 放行申请条件：按 A/B/C/D 四段（A：schema+不可变边界+幂等/并发 → T01/T02/T03a/T06/T14/T20/T21；
 B：血缘管道 → T03b/T04/T05/T15/T16；C：语料校准 → T07/T07a/T08/T09/T10/T17/T18；
-D：健康投影 → T11/T12/T13/T19）。范围继续排除：真实来源、新页面、阈值变更。
+D：健康投影 → T11/T12/T13/T19/T22）。范围继续排除：真实来源、新页面、阈值变更。

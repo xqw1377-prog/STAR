@@ -44,10 +44,22 @@ availability 拆分为 response availability / success / error / timeout 四率�
 
 （原 `source_availability` 单一指标废除——它把 ERROR 计入"可用"，见一致性 B。）
 
+### §3.1 空窗口与分母（零样本不伪装完美）
+
+- 滑窗：闭区间 `[now − 1h, now]`。
+- 分母 = 窗口内全部 `CollectionAttempt` 行数（含 `ABORTED`）。
+- **分母 = 0**：`response_availability` / `success_rate` / `error_rate` / `timeout_rate`
+  （及 `aborted_rate`）均为 **`null`**，禁止写成 `0`；`degraded_reason = UNKNOWN`。
+  `0` 表示「测过且失败率为零」；`null` 表示「没有测量」。
+- 四率不是完备分割：`ABORTED` 不进四率分子。有样本时
+  `response_availability + error_rate + timeout_rate + aborted_rate = 1`，
+  且 `success_rate ≤ response_availability`。
+- `aborted_rate` = `outcome=ABORTED / 全部 Attempt`（有样本）；零样本同样为 `null`。
+
 ## 4. 投影合同
 
-- 健康投影是**纯读、可重建**的 Layer P 派生视图（从 Layer R 聚合，
-  不新增可变状态）；落库形式（快照表）仅供历史趋势，重建永远以 R 为准（DATA-008 语义）。
+- 健康投影是**纯读、可重建**的 Layer P 派生视图（从 Layer A 与 Layer R 聚合，
+  不新增可变状态）；落库形式（快照表）仅供历史趋势，重建永远以 A/R 为准（DATA-008 语义）。
 - 消费者白名单（设计冻结）：
   1. Desk 数据健康视图（未来授权页面元素）——仅展示；
   2. 采集调度——`degraded_reason` 驱动退避与降频（如 RATE_LIMITED 指数退避）；

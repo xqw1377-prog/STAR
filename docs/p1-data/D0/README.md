@@ -1,9 +1,17 @@
 # P1-DATA-D0 DESIGN PACKAGE（rev2）
 
 ```text
-P1-DATA-D0 rev1            = CHANGES-REQUIRED（c83e2ae，档案保留，不再待签）
+P0 CONTRACT CONSOLIDATION = PASS
+star/ ARCHIVE              = PASS
+ACTIVE IMPLEMENTATIONS     = 1
+P1-DATA-D0 rev1            = CHANGES-REQUIRED（c83e2ae 档案保留，不再待签）
 P1-DATA-D0 rev2            = AUTHORIZED / DOCS-ONLY
 P1-DATA-D1                 = UNAUTHORIZED / QUARANTINED
+SIX MVP PAGES              = 4/6 IN HEAD
+WALLET_GRAPH_MISSING       = NOT IMPLEMENTED IN HEAD
+P1                          = NO-GO
+REAL DATA                   = NO-EVIDENCE
+HISTORICAL CORPUS           = NO-EVIDENCE
 ```
 
 状态：DESIGN-ONLY（无实现代码）· 基线 star-web@6f40295 · 2026-09-03  
