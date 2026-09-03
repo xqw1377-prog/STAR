@@ -2,13 +2,18 @@
 
 状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03
 
-## 1. 两个正交的键
+## 1. 四个正交的身份（先分层，再谈键）
 
-幂等不是一句话——请求身份与回执身份必须分开：
+| 身份 | 对象 | 载体 | 生命周期 |
+|---|---|---|---|
+| 采集身份 | 一次采集批次 | `collection_run_id` | 批次开始→结束 |
+| 查询身份 | 一个确定性的查询规格 | `observation_key` | 永久稳定（与响应无关） |
+| 观察事实 | 该查询在某链上锚处收到的一份响应 | 一行 RawObservation | 追加后不可变 |
+| 回执身份 | 该响应实例的指纹 | `receipt_key` | 由 observation+anchor+payload 决定 |
 
-- **`observation_key`**：识别"这一次查询"（与响应无关）
-- **`receipt_key`**：识别"这一次查询收到的一份响应实例"
-
+**规范性规则 R0**：`observation_key` **永不单独充当去重键**。
+同一查询在后续 slot 的新观察（§4 #4）是正常的新事实，不是重复；
+去重只发生在 `receipt_key` **完全相等**时（§4 #1）。
 Layer R 唯一约束建在 `receipt_key` 上；`observation_key` 建普通索引供重放与审计。
 
 ## 2. `observation_key` 计算规范（冻结）
@@ -36,11 +41,15 @@ receipt_key = SHA-256(
   observation_key             ‖ 0x0A
   anchor    // anchor_slot 十进制字符串；无 slot 时 "t:" + anchor_time 的 UTC 纳秒
   ‖ 0x0A
-  payload_hash                // status=SUCCESS/PARTIAL：响应体 SHA-256
+  payload_bytes_hash          // status=SUCCESS/PARTIAL：原始响应字节（as-received，
+                               // 未规范化）的 SHA-256 —— 与 RawObservation.payload_hash 同源
                                // status=ERROR/UNKNOWN：error_code
 )
 ```
 
+**raw 层哈希只认字节**：RFC 8785 仅用于 §2 的请求参数规范化，
+**禁止**用于响应载荷——payload 的规范化（如 JCS）只发生在 parser 输出层
+（NormalizedFact.payload_hash，命名空间 `"star-fact-v1"`，与 receipt 键永不互转）。
 同一查询、同一链上锚、同一响应字节（或同一错误码）→ 同一 receipt。
 **不同 payload 天然产生不同 receipt**，因此"重复"与"冲突"的判定不靠比较键碰撞，
 而靠 §4 的判定表在 `observation_key + anchor` 粒度上做归并。
@@ -52,17 +61,22 @@ receipt_key = SHA-256(
 | # | 条件 | 判定 | 动作 |
 |---|---|---|---|
 | 1 | `N.receipt_key == E.receipt_key` | **幂等命中** | 不插入 raw；仅在采集批次日志（sidecar `collection_run` 表）记录 run 与 hit；raw 行零改动 |
-| 2 | 同 `observation_key` + 同 `anchor` + `payload_hash` 不同 + 双方 SUCCESS | **冲突（CONTESTED）** | 插入新 raw，`relation='CONTESTS'`、`relates_to=E.id`；E 不动；数据健康 `contradiction_count +1`；对应 NormalizedFact 两版并存，投影按内核平局规则取晚者并携带 conflict 标记 |
-| 3 | 同 `observation_key` + 同 `anchor` + 一方 PARTIAL | **修订（SUPERSEDES）** | 插入新 raw，`relation='SUPERSEDES'`、`relates_to=E.id`；新 fact 的 `superseded_by` 链完整保留；旧 fact 不删 |
-| 4 | 同 `observation_key` + 不同 `anchor`（slot 前进） | **新观察** | 正常插入，无 relation；这是链上状态的正常推进，不是重复 |
+| 2 | 同 `observation_key` + 同 `anchor` + `payload_bytes_hash` 不同 + 双方 SUCCESS | **冲突（CONTESTED）** | 插入新 raw，`relation='CONTESTS'`、`relates_to=E.id`；E 不动；数据健康 `contradiction_count +1`；对应 NormalizedFact 两版并存，投影按内核平局规则取晚者并携带 conflict 标记 |
+| 3 | 同 `observation_key` + 同 `anchor` + 有一方 PARTIAL | **部分回执** | 插入/保留 PARTIAL 回执（供健康遥测与血缘），`relation` 如实记录；**PARTIAL 不派生任何 NormalizedFact**——事实必须等到同 (observation, anchor) 的 SUCCESS 回执 |
+| 4 | 同 `observation_key` + 不同 `anchor`（slot 前进） | **新观察** | 正常插入，无 relation；这是链上状态的正常推进，不是重复（规范性规则 R0） |
 | 5 | `status=UNKNOWN`（超时等） | **未定回执** | 插入 raw（payload_hash=null，error_code=TIMEOUT）；**不产生任何 NormalizedFact**；门禁维持 UNKNOWN（fail-closed）；后续重试是新的 receipt |
 | 6 | `status=ERROR`（明确失败） | **失败回执** | 插入 raw；仅进健康遥测；同样不产生 fact |
 
+**Parser 输入门（规范性规则 R1）**：parser 只接受 `status=SUCCESS` 的回执作为输入。
+UNKNOWN / ERROR / PARTIAL 回执保留于 Layer R 供健康模型消费（DATA_HEALTH_MODEL §3），
+但任何路径都不得从它们派生事实——这是 §4 表 #3/#5/#6 的实现侧保证。
+
 ## 5. 血缘与版本
 
-- 每个 NormalizedFact 必须指向恰好一个 `receipt_id`；
-- 同一 observation 的 receipt 链（CONTESTS/SUPERSEDES）构成完整历史，
-  任何时点的投影都可从 `observed_at ≤ cutoff` 的 receipt 链重建；
+- 每个 NormalizedFact 必须指向恰好一个 `receipt_id`（且该回执 `status=SUCCESS`，规则 R1）；
+- receipt 间关系仅两种：`CONTESTS`（同锚双 SUCCESS 字节不同，#2）与
+  `SUPERSEDES`（PARTIAL→SUCCESS 补全，#3）；同一 observation 的 receipt 链
+  构成完整历史，任何时点的投影都可从 `observed_at ≤ cutoff` 的 receipt 链重建；
 - **parser 升级**：`parser_version` 从 `vN` → `vN+1` 时，
   对既有 raw **重放**（replay）生成新版本 fact 行，**禁止重新采集**
   （同 observation_key 不再发请求）；新旧 fact 并存，

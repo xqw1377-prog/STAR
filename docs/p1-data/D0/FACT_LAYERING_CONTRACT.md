@@ -32,8 +32,9 @@ Layer R 的唯一消费者是 parser；parser 的唯一输出是 Layer N；门�
 | `collection_run_id` | uuid | 采集批次 | 索引用 |
 | `anchor_slot` | bigint·null | 链上锚（slot）；离线源为 null | null 时以 `anchor_time` 兜底 |
 | `anchor_time` | timestamptz·null | 离线源时间锚 | 二者至少其一 |
-| `effective_at` / `observed_at` / `ingested_at` | timestamptz | 三重时间，语义与现内核一致 | 沿用 DATA-001 不变式 |
-| `payload_hash` | char(64)·null | payload 的 SHA-256；错误响应为 null | success/partial 必填 |
+| `effective_at` / `observed_at` / `ingested_at` | timestamptz | 三重时间，语义与现内核一致 | `effective_at` 仅指**事实发生时间**，受 `effectiveAt ≤ ingestedAt` 不变式约束；未来计划见 `scheduled_at` |
+| `scheduled_at` | timestamptz·null | **未来计划生效时间**（锁仓解锁、 Cliff 等）。不参与任何不变式；绝不能作为已发生事实进入 Evidence | 见 §2.2 |
+| `payload_hash` | char(64)·null | **原始响应字节**（as-received，未做任何规范化）的 SHA-256；错误响应为 null | success/partial 必填；与 NormalizedFact.payload_hash 命名空间不同、永不相混 |
 | `payload_ref` | text | blob 存储键（D1 以文件仓实现） | 与 `payload_inline` 至少其一 |
 | `payload_inline` | bytea·null | ≤4KB 小响应内联 | 便于测试与小载荷 |
 | `schema_version` | text | raw 信封结构版本（`star-raw@1`） | 起始为 `star-raw@1` |
@@ -50,6 +51,32 @@ Layer R 的唯一消费者是 parser；parser 的唯一输出是 Layer N；门�
   PGlite 场景以触发器 `RAISE EXCEPTION` 与代码层 repository 唯一入口共同保证）。
 - 纠错 = 追加新行（`relation`/`relates_to` 字段见幂等合同 §5），旧行永久保留。
 - blob 文件仓同样 append-only：键含 `payload_hash`，天然内容寻址、不可串改。
+
+### §2.1 受控例外（CONTROLLED EXCEPTIONS —— 唯一允许的状态迁移路径）
+
+"禁止 UPDATE/DELETE" 是对**常规写入路径**的约束；下列三种情形通过
+**审计化状态迁移**处理，每次迁移在 append-only 的 `raw_audit` 台账留痕
+（操作者、授权引用、时间、前后状态），不与 retention/license class 矛盾：
+
+| 情形 | 动作 | 字段变化 | 不可变底线 |
+|---|---|---|---|
+| 许可到期 / 合规下架 | PURGE：payload blob 以墓碑替换；行保留 | `retention_class→PURGED`、`purged_at`、`purge_authorization_ref` | `payload_hash`、全部时间戳与血缘**保留**（存在性证明）；审计可查 |
+| 数据损坏（校验不符） | QUARANTINE：行排除出重放与派生，字节原样保留取证 | `quarantine_status→QUARANTINED`（经审计事件） | 原始字节不改写 |
+| 法律保全（legal hold） | 冻结一切针对该行的 PURGE | `legal_hold=true` | 优先级高于 PURGE |
+
+迁移由来源注册表状态变化或书面合规指令触发，需授权引用；
+**任何迁移都不是静默 UPDATE**——没有审计事件的状态位变更同样被触发器拒绝。
+
+### §2.2 `scheduled_at` 与未来事件（反误伤规则）
+
+- 现内核不变式 `effectiveAt > ingestedAt ⇒ 隔离` 只适用于**已发生事实**。
+  锁仓"lockedUntil 2027-03-01"这类**未来计划**的正确表达：
+  `effective_at = 观察到锁仓状态的时刻`（发生时间，受不变式），
+  未来时点放 `scheduled_at = 2027-03-01` 与载荷字段
+  （现 `LiquidityPayload.lockedUntil` 已是此形态）；
+- 含 `scheduled_at` 的 raw **不得**派生"解锁已生效"类 NormalizedFact——
+  解锁生效只能由解锁**发生后**的新观察（新 receipt）证明；
+  门禁对 `lockedUntil > asOf` 的比较走载荷字段（现行为，正确且不变）。
 
 ## 3. Layer N — NormalizedFact 字段合同
 

@@ -1,6 +1,8 @@
 # P1-DATA-D0 · 验收矩阵（D0 ACCEPTANCE）
 
 状态：DESIGN-ONLY · 基线 star-web@6f40295 · 2026-09-03
+（rev1：吸收评审五处核对点——原始字节哈希、身份分层 R0、parser 输入门 R1、
+受控例外 §2.1、scheduled_at §2.2；diff 741284c..HEAD 仅含 D0 文档修订）
 本提交**只含文档**（`git show --stat` 范围 = `docs/p1-data/D0/**`）。
 每项 D0 门禁给出：设计条款出处 + D1 实现阶段将以哪个测试证明。
 
