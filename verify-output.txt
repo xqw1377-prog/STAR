@@ -1,0 +1,3 @@
+MUST=70 present=70 missing=0
+FORBIDDEN hits=0 (files scanned: all package .md)
+RESULT: ALL PASS
