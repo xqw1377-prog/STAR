@@ -1,21 +1,23 @@
-# P1-DATA-D0 DESIGN PACKAGE（rev2）
+# P1-DATA-D0 DESIGN PACKAGE（rev4）
 
 ```text
-P1-DATA-D0 rev1            = CHANGES-REQUIRED（c83e2ae，档案保留，不再待签）
-P1-DATA-D0 rev2            = AUTHORIZED / DOCS-ONLY
-P1-DATA-D1                 = UNAUTHORIZED / QUARANTINED
+P1-DATA-D0 rev1            = SUPERSEDED（c83e2ae）
+P1-DATA-D0 rev2            = SUPERSEDED（fbc802e）
+P1-DATA-D0 rev3            = SUPERSEDED（ffaf938；终审 CHANGES-REQUIRED：
+                             递交说明与正文不一致等八项阻断）
+P1-DATA-D0 rev4            = CURRENT / DOCS-ONLY（本包）
+P1-DATA-D1                 = HOLD（A/B/C/D 分段授权，未放行）
+P1                         = NO-GO
 ```
 
-状态：DESIGN-ONLY（无实现代码）· 基线 star-web@6f40295 · 2026-09-03  
-rev2 只修订 `docs/p1-data/D0/**`，闭合 rev1 评审退回的合同阻断。不触碰 `app/`、`lib/`、`db/`、测试实现、页面或隔离 stash。
+状态：DESIGN-ONLY（无实现代码）· 基线 star-web@6f40295 · 2026-09-03
 
 | 文档 | 内容 |
 |---|---|
-| [FACT_LAYERING_CONTRACT.md](./FACT_LAYERING_CONTRACT.md) | Attempt / RawReceipt / NormalizedFact / 投影 四层；单向 supersedes；PURGE 不改写内容寻址对象；effective_time_kind |
-| [IDEMPOTENCY_SEMANTICS.md](./IDEMPOTENCY_SEMANTICS.md) | 五身份；UNKNOWN 重试只增 Attempt；CONTESTED→UNKNOWN；parser HISTORICAL/REINTERPRET |
-| [SYNTHETIC_CORPUS_CONTRACT.md](./SYNTHETIC_CORPUS_CONTRACT.md) | 合成 50+100；独立 oracle/golden；家族分组；real=0 |
-| [DATA_HEALTH_MODEL.md](./DATA_HEALTH_MODEL.md) | 健康≠风险；availability / success / error / timeout 四率分列 |
-| [D0_ACCEPTANCE.md](./D0_ACCEPTANCE.md) | 门禁 → 条款 + D1 测试；登记不执行项 |
+| FACT_LAYERING_CONTRACT.md | 五层模型（AttemptStarted/OutcomeEvent/Receipt/Fact/投影）；处置状态机与 blob 引用计数；事实级时间语义；解释上下文 |
+| IDEMPOTENCY_SEMANTICS.md | 双键规范；两阶段判定表；回执/事实冲突两级作用域；唯一约束；parser 重放 |
+| SYNTHETIC_CORPUS_CONTRACT.md | 50+100 合成语料：oracle 独立、无前视不变量、家族分组（real=0） |
+| DATA_HEALTH_MODEL.md | 五率与质量指标；窗口/分母/零样本；degraded 优先级；plan_item 归因 |
+| D0_ACCEPTANCE.md | 验收门禁与 D1-A/B/C/D 测试对齐（T01–T28） |
 
-边界重申：本阶段不接真实来源（RPC/Jupiter/DexScreener 继续 HOLD）、
-不新增页面、不改六门禁与阈值、不引入钱包/交易/AURORA。
+边界：不接真实来源（HOLD）、不新增页面、不改六门禁与阈值、不引入钱包/交易/AURORA。
