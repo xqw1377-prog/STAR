@@ -20,6 +20,14 @@ describe('evidenceAvailableAt (DATA-001 leak guard)', () => {
     expect(evidenceAvailableAt(ev({ observedAt: '2026-08-20T00:00:00Z' }), '2026-08-19T00:00:00Z')).toBe(false);
     expect(evidenceAvailableAt(ev({ observedAt: '2026-08-19T00:00:00Z' }), '2026-08-19T00:00:00Z')).toBe(true);
   });
+
+  it('hides evidence ingested after the cutoff even if observed earlier', () => {
+    expect(evidenceAvailableAt(ev({
+      observedAt: '2026-08-18T00:00:00Z',
+      effectiveAt: '2026-08-18T00:00:00Z',
+      ingestedAt: '2026-08-20T00:00:00Z',
+    }), '2026-08-19T00:00:00Z')).toBe(false);
+  });
 });
 
 describe('evidenceAtCutoff / latestEvidenceByCheck', () => {

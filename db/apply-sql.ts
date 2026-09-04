@@ -1,3 +1,15 @@
+export const TARGET_SCHEMA_VERSION = 4;
+export const SCHEMA_LABEL = 'star-raw@4';
+
+const VERSION_DDL = `
+CREATE TABLE IF NOT EXISTS star_schema_version (
+  id integer PRIMARY KEY,
+  version integer NOT NULL,
+  label text NOT NULL,
+  applied_at timestamptz NOT NULL
+);
+`;
+
 export function stripSqlComments(sql: string): string {
   return sql
     .split('\n')
@@ -8,32 +20,76 @@ export function stripSqlComments(sql: string): string {
     .join('\n');
 }
 
+type SqlName = 'init.sql' | 'init-d1.sql' | 'init-d1b.sql' | 'init-d1c.sql' | 'init-d1d.sql' | 'init-d1-triggers.sql';
+
+type PgliteLike = {
+  query: (sql: string) => Promise<unknown>;
+  exec: (sql: string) => Promise<unknown>;
+};
+
+async function tableReady(pglite: PgliteLike, sql: string): Promise<boolean> {
+  try {
+    await pglite.query(sql);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readVersion(pglite: PgliteLike): Promise<number> {
+  try {
+    const result = await pglite.query('SELECT version FROM star_schema_version WHERE id = 1') as { rows?: { version: number }[] };
+    const version = result.rows?.[0]?.version;
+    return typeof version === 'number' ? version : Number(version ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+async function writeVersion(pglite: PgliteLike, version: number): Promise<void> {
+  await pglite.exec(`
+    INSERT INTO star_schema_version (id, version, label, applied_at)
+    VALUES (1, ${version}, '${SCHEMA_LABEL}', now())
+    ON CONFLICT (id) DO UPDATE SET
+      version = EXCLUDED.version,
+      label = EXCLUDED.label,
+      applied_at = EXCLUDED.applied_at;
+  `);
+}
+
+/**
+ * Apply public/*.sql in order. Patches after the recorded version are skipped.
+ * init-d1d / triggers run once when promoting to v4, not on every boot.
+ */
 export async function ensureCoreAndD1(
-  pglite: { query: (sql: string) => Promise<unknown>; exec: (sql: string) => Promise<unknown> },
-  readSql: (name: 'init.sql' | 'init-d1.sql' | 'init-d1b.sql' | 'init-d1c.sql' | 'init-d1d.sql' | 'init-d1-triggers.sql') => Promise<string>,
+  pglite: PgliteLike,
+  readSql: (name: SqlName) => Promise<string>,
 ): Promise<void> {
-  try {
-    await pglite.query('SELECT 1 FROM projects LIMIT 1');
-  } catch {
+  await pglite.exec(VERSION_DDL);
+  let version = await readVersion(pglite);
+
+  if (version < 1 && !(await tableReady(pglite, 'SELECT 1 FROM projects LIMIT 1'))) {
     await pglite.exec(stripSqlComments(await readSql('init.sql')));
+    version = 1;
+    await writeVersion(pglite, version);
   }
-  try {
-    await pglite.query('SELECT 1 FROM collection_attempt LIMIT 1');
-  } catch {
+  if (version < 2 && !(await tableReady(pglite, 'SELECT 1 FROM collection_attempt LIMIT 1'))) {
     await pglite.exec(stripSqlComments(await readSql('init-d1.sql')));
+    version = 2;
+    await writeVersion(pglite, version);
   }
-  try {
-    await pglite.query('SELECT 1 FROM receipt_relation LIMIT 1');
-  } catch {
+  if (version < 3 && !(await tableReady(pglite, 'SELECT 1 FROM receipt_relation LIMIT 1'))) {
     await pglite.exec(stripSqlComments(await readSql('init-d1b.sql')));
+    version = 3;
+    await writeVersion(pglite, version);
   }
-  try {
-    await pglite.query('SELECT 1 FROM interpretation_context LIMIT 1');
-  } catch {
+  if (!(await tableReady(pglite, 'SELECT 1 FROM interpretation_context LIMIT 1'))) {
     await pglite.exec(stripSqlComments(await readSql('init-d1c.sql')));
   }
-  await pglite.exec(stripSqlComments(await readSql('init-d1d.sql')));
-  // Immutable-boundary triggers: append-only enforcement at the DB layer.
-  // The trigger SQL is self-idempotent (DROP IF EXISTS + CREATE), so exec unconditionally.
-  await pglite.exec(stripSqlComments(await readSql('init-d1-triggers.sql')));
+  if (version < 4) {
+    await pglite.exec(stripSqlComments(await readSql('init-d1d.sql')));
+    await pglite.exec(stripSqlComments(await readSql('init-d1-triggers.sql')));
+    version = 4;
+    await writeVersion(pglite, version);
+  }
 }

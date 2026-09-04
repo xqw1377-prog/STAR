@@ -42,6 +42,22 @@ export interface Timed {
   ingestedAt: string;
 }
 
+/** Parse an ISO-UTC timestamp. Non-UTC or unparseable values fail closed. */
+export function utcMs(value: string, field = 'timestamp'): number {
+  validateIsoUtc(value, field);
+  const ms = Date.parse(value);
+  if (Number.isNaN(ms)) throw new TemporalViolation(`${field} not a valid instant`);
+  return ms;
+}
+
+function visibleAt(observedAt: string, ingestedAt: string, cutoff: string, effectiveAt?: string): boolean {
+  const c = utcMs(cutoff, 'cutoff');
+  if (utcMs(observedAt, 'observedAt') > c) return false;
+  if (utcMs(ingestedAt, 'ingestedAt') > c) return false;
+  if (effectiveAt && utcMs(effectiveAt, 'effectiveAt') > c) return false;
+  return true;
+}
+
 export function latestByKey<T>(
   rows: T[],
   cutoff: string,
@@ -52,10 +68,12 @@ export function latestByKey<T>(
   effectiveAt?: (row: T) => string,
 ): Map<string, T> {
   const available = rows
-    .filter((row) => observedAt(row) <= cutoff && (!effectiveAt || effectiveAt(row) <= cutoff))
+    .filter((row) => visibleAt(observedAt(row), ingestedAt(row), cutoff, effectiveAt?.(row)))
     .sort((a, b) => {
-      const byObserved = observedAt(b).localeCompare(observedAt(a));
-      return byObserved || ingestedAt(b).localeCompare(ingestedAt(a)) || id(b).localeCompare(id(a));
+      const byObserved = utcMs(observedAt(b), 'observedAt') - utcMs(observedAt(a), 'observedAt');
+      if (byObserved) return byObserved;
+      const byIngested = utcMs(ingestedAt(b), 'ingestedAt') - utcMs(ingestedAt(a), 'ingestedAt');
+      return byIngested || id(b).localeCompare(id(a));
     });
   const latest = new Map<string, T>();
   for (const item of available) {
@@ -66,7 +84,7 @@ export function latestByKey<T>(
 }
 
 export function evidenceAvailableAt(item: Evidence, cutoff: string) {
-  return item.observedAt <= cutoff && item.effectiveAt <= cutoff;
+  return visibleAt(item.observedAt, item.ingestedAt, cutoff, item.effectiveAt);
 }
 
 export function evidenceAtCutoff(evidence: Evidence[], cutoff: string) {

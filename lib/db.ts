@@ -5,7 +5,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import * as schema from '@/db/schema';
 import * as fixtures from '@/db/star-fixtures';
 import { refreshProject } from './star-engine';
-import { stripSqlComments } from '@/db/apply-sql';
+import { ensureCoreAndD1 } from '@/db/apply-sql';
 import { backfillLedgerFromEvidence } from '@/lib/data/ledger-seed';
 
 export type StarDb = ReturnType<typeof drizzle<typeof schema>>;
@@ -19,34 +19,7 @@ export async function initDb(): Promise<StarDb> {
   pgliteInstance = new PGlite('idb://star');
   await pgliteInstance.waitReady;
 
-  const initSql = await fetch('/init.sql').then((r) => r.text());
-  try {
-    await pgliteInstance.query('SELECT 1 FROM projects LIMIT 1');
-  } catch {
-    await pgliteInstance.exec(stripSqlComments(initSql));
-  }
-  try {
-    await pgliteInstance.query('SELECT 1 FROM collection_attempt LIMIT 1');
-  } catch {
-    const d1 = await fetch('/init-d1.sql').then((r) => r.text());
-    await pgliteInstance.exec(stripSqlComments(d1));
-  }
-  try {
-    await pgliteInstance.query('SELECT 1 FROM receipt_relation LIMIT 1');
-  } catch {
-    const d1b = await fetch('/init-d1b.sql').then((r) => r.text());
-    await pgliteInstance.exec(stripSqlComments(d1b));
-  }
-  try {
-    await pgliteInstance.query('SELECT 1 FROM interpretation_context LIMIT 1');
-  } catch {
-    const d1c = await fetch('/init-d1c.sql').then((r) => r.text());
-    const d1t = await fetch('/init-d1-triggers.sql').then((r) => r.text());
-    await pgliteInstance.exec(stripSqlComments(d1c));
-    await pgliteInstance.exec(d1t);
-  }
-  const d1d = await fetch('/init-d1d.sql').then((r) => r.text());
-  await pgliteInstance.exec(stripSqlComments(d1d));
+  await ensureCoreAndD1(pgliteInstance, (name) => fetch(`/${name}`).then((r) => r.text()));
 
   dbInstance = drizzle(pgliteInstance, { schema });
 

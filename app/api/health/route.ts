@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { SCHEMA_LABEL } from '@/db/apply-sql';
 import { BUILD_SHA } from '@/lib/build-info';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,7 @@ export async function GET() {
       ok: true,
       commit: BUILD_SHA,
       build_sha: BUILD_SHA,
-      schema: 'star-raw@3',
+      schema: SCHEMA_LABEL,
       contract: 'solana-readonly@3',
       server_time: new Date().toISOString(),
     },

@@ -81,7 +81,7 @@ e2e 含：四页面渲染 + SYNTHETIC FIXTURE DATA 标注（SAFE-004）、STAR D
 
 ## 部署债务登记
 
-1. **PGlite 服务端运行时路径加载**（`db/client.ts`）：以 `process.cwd()/node_modules` 绝对路径 require 真模块，规避 Next 打包对 `new URL(..., import.meta.url)` 的改写。依赖安装目录布局，不兼容 standalone 产物/pnpm。P1 前需换正式方案（custom server / 依赖升级 / 外部 PGlite 服务）。
+1. **PGlite 服务端加载**（`db/client.ts`）：`createRequire` 按 `node_modules` 绝对路径加载，避免 Next 改写 wasm URL。内部上线验收形态见 `docs/deploy/SINGLE_NODE.md`（单进程 + 持久卷）。不兼容 Serverless 多实例 / 无卷容器 / pnpm standalone。多实例或外部 Postgres 仍是后续债务。
 2. **PGlite 浏览器端 SSR 切断**（`app/providers-ssr.tsx`，`dynamic ssr:false`）：浏览器 idb 存储不参与 SSR；页面内容水合后呈现。
 3. **lockfile 曾损坏**：原 lock 缺跨平台 optional 依赖导致 `npm ci` 失败，已用 `npm install --package-lock-only` 重建；候选 lockfile 以本提交为准。
 

@@ -1,0 +1,8 @@
+node_modules
+.next
+.pglite
+.git
+coverage
+test-results
+playwright-report
+*.log

@@ -334,6 +334,13 @@ export const interpretationContextFacts = pgTable('interpretation_context_fact',
   factId: text('fact_id').notNull(),
 });
 
+export const starSchemaVersion = pgTable('star_schema_version', {
+  id: integer('id').primaryKey(),
+  version: integer('version').notNull(),
+  label: text('label').notNull(),
+  appliedAt: timestamp('applied_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
 export const interpretationContextParsers = pgTable('interpretation_context_parser', {
   contextId: text('context_id').notNull(),
   sourceId: text('source_id').notNull(),

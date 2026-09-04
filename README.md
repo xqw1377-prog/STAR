@@ -59,6 +59,7 @@ npm run typecheck      # tsc --noEmit
 npm test               # vitest（不含真实网络）
 STAR_SMOKE=1 npm run test:smoke   # 真实主网只读冒烟（需工程覆盖，见下）
 npm run build && npm start
+# 内部只读单机形态见 docs/deploy/SINGLE_NODE.md
 ```
 
 服务端 API：
