@@ -1,14 +1,19 @@
 /**
  * M1 Recorder service — records market facts onto the D1 ledger.
- * Fact-only per the issuance ruling (M0 FROZEN rev1 / BOUNDARY rev2,
- * 2026-09-05): no strategy signals, no parameter optimization, no wallet.
- * Every observation flows through startAttempt → completeSuccess so lineage
- * (attempt → outcome → receipt → normalized_fact) is complete and the
- * append-only triggers guard immutability.
+ * Fact-only: no strategy signals, no parameter optimization, no wallet.
+ * Every observation starts an attempt. Failures become outcomes; they are
+ * never dropped. Non-ENABLED sources fail-closed onto the ledger.
  */
 import type { StarDb } from '@/lib/db';
 import { eq } from 'drizzle-orm';
-import { ensurePlanItem, startAttempt, completeSuccess } from '@/lib/data/ledger';
+import {
+  classifyCollectError,
+  completeFailure,
+  completeSuccess,
+  ensurePlanItem,
+  startAttempt,
+} from '@/lib/data/ledger';
+import { assertSourceEnabled } from '@/lib/data/source-registry';
 import type { ChainFact } from '@/lib/data/contract';
 import * as schema from '@/db/schema';
 import type { NewPoolBirth, PoolBookSnapshot, PriorityFeeObservation } from './types';
@@ -18,7 +23,38 @@ const SOURCE_FIXTURE = 'synthetic-fixtures';
 const METHOD_BIRTH = 'm1:pool-birth';
 const METHOD_BOOK = 'm1:pool-book';
 const METHOD_FEE = 'm1:priority-fee';
+const BLOCKED_SUBJECT = 'rec-source-denied';
 
+export interface BirthRecord {
+  attemptId: string;
+  ok: boolean;
+  outcome: string;
+  receiptId: string | null;
+  enteredDenominator: boolean;
+}
+
+export interface BookRecord {
+  attemptId: string;
+  ok: boolean;
+  outcome: string;
+  receiptId: string | null;
+}
+
+export interface FeeRecord {
+  attemptId: string;
+  ok: boolean;
+  outcome: string;
+  receiptId: string | null;
+  sampleCount: number;
+}
+
+function resolveSourceId(source: string): string {
+  return source === 'fixture' ? SOURCE_FIXTURE : source;
+}
+
+function isoOf(d: Date | string): Date {
+  return typeof d === 'string' ? new Date(d) : d;
+}
 
 /** U-03: discovery objects are keyed by mint — ensure a minimal subject row. */
 async function ensureMintSubject(db: StarDb, mint: string, firstSeenAt: Date): Promise<string> {
@@ -41,15 +77,9 @@ async function ensureMintSubject(db: StarDb, mint: string, firstSeenAt: Date): P
   return mint;
 }
 
-function isoOf(d: Date | string): Date {
-  return typeof d === 'string' ? new Date(d) : d;
-}
-
 /**
- * Market-fact adapter: M1 kinds (pool-birth/pool-book/priority-fee) are
- * measurement-domain facts outside the frozen research union; same documented
- * cast precedent as ledger.ts backfill path. Payload bytes still land on the
- * append-only ledger with full lineage.
+ * Market-fact adapter: M1 kinds sit outside the frozen research union.
+ * Same documented cast precedent as the ledger backfill path.
  */
 function asMarketFact(kind: string, payload: Record<string, unknown>, opts: {
   observedAt: string; slot: number | null; source: string;
@@ -67,87 +97,155 @@ function asMarketFact(kind: string, payload: Record<string, unknown>, opts: {
   };
 }
 
+async function beginAttempt(
+  db: StarDb,
+  args: {
+    projectId: string;
+    factKind: string;
+    sourceId: string;
+    methodId: string;
+    observationKey: string;
+    requestParams: Record<string, unknown>;
+    startedAt: Date;
+    plan?: boolean;
+  },
+) {
+  const planItemId = args.plan
+    ? await ensurePlanItem(db, {
+        sourceId: args.sourceId,
+        methodId: args.methodId,
+        projectId: args.projectId,
+        factKind: args.factKind,
+      })
+    : undefined;
+  return startAttempt(db, {
+    projectId: args.projectId,
+    factKind: args.factKind,
+    sourceId: args.sourceId,
+    methodId: args.methodId,
+    planItemId,
+    observationKey: args.observationKey,
+    requestParams: { ...args.requestParams, recorder: RECORDER_VERSION },
+    startedAt: args.startedAt,
+  });
+}
+
+async function failClosed(
+  db: StarDb,
+  attemptId: string,
+  error: unknown,
+): Promise<{ ok: false; attemptId: string; outcome: string; receiptId: null }> {
+  await completeFailure(db, { attemptId, error });
+  const classified = classifyCollectError(error);
+  return { ok: false, attemptId, outcome: classified.outcome, receiptId: null };
+}
+
 /** Record a new-pool birth observation (U-03: keyed by mint across venues). */
 export async function recordNewPoolBirth(
   db: StarDb,
   obs: Omit<NewPoolBirth, 'receiptId'>,
-): Promise<{ attemptId: string; receiptId: string; enteredDenominator: boolean }> {
-  const subjectId = await ensureMintSubject(db, obs.mint, new Date(obs.observedAt));
-  const planItemId = await ensurePlanItem(db, {
-    sourceId: obs.source === 'fixture' ? SOURCE_FIXTURE : obs.source,
-    methodId: METHOD_BIRTH,
+): Promise<BirthRecord> {
+  const sourceId = resolveSourceId(obs.source);
+  let subjectId = BLOCKED_SUBJECT;
+  try {
+    assertSourceEnabled(sourceId);
+    if (obs.initialReserveSolEq < 0) throw new Error('invalid reserve');
+    subjectId = await ensureMintSubject(db, obs.mint, new Date(obs.observedAt));
+  } catch {
+    subjectId = BLOCKED_SUBJECT;
+  }
+  const started = await beginAttempt(db, {
     projectId: subjectId,
     factKind: 'pool-birth',
-  });
-  const attempt = await startAttempt(db, {
-    projectId: subjectId,
-    factKind: 'pool-birth',
-    sourceId: obs.source === 'fixture' ? SOURCE_FIXTURE : obs.source,
+    sourceId,
     methodId: METHOD_BIRTH,
-    planItemId,
-    observationKey: `${METHOD_BIRTH}|${obs.dex}|${obs.poolAddress}`,
+    observationKey: `${METHOD_BIRTH}|${obs.dex}|${obs.poolAddress}|${RECORDER_VERSION}`,
     requestParams: { mint: obs.mint, dex: obs.dex, pool: obs.poolAddress },
     startedAt: isoOf(obs.observedAt),
+    plan: true,
   });
-  const payload = {
-    recorder: RECORDER_VERSION,
-    mint: obs.mint,
-    dex: obs.dex,
-    quoteAsset: obs.quoteAsset,
-    poolAddress: obs.poolAddress,
-    initialReserveSolEq: obs.initialReserveSolEq,
-    slot: obs.slot,
-  };
-  const { receiptId } = await completeSuccess(db, {
-    attemptId: attempt.attemptId,
-    observationKey: attempt.observationKey,
-    projectId: subjectId,
-    fact: asMarketFact('pool-birth', payload, {
-      observedAt: new Date(obs.observedAt).toISOString(),
-      slot: obs.slot,
-      source: obs.source === 'fixture' ? SOURCE_FIXTURE : obs.source,
-    }),
-    completedAt: isoOf(obs.observedAt),
-  });
-  // U-01: ≥ 8 SOL-equivalent initial reserve enters the discovery denominator.
-  return { attemptId: attempt.attemptId, receiptId, enteredDenominator: obs.initialReserveSolEq >= 8 };
+  try {
+    assertSourceEnabled(sourceId);
+    if (obs.initialReserveSolEq < 0) throw new Error('invalid reserve');
+    const { receiptId } = await completeSuccess(db, {
+      attemptId: started.attemptId,
+      observationKey: started.observationKey,
+      projectId: subjectId,
+      fact: asMarketFact('pool-birth', {
+        recorder: RECORDER_VERSION,
+        mint: obs.mint,
+        dex: obs.dex,
+        quoteAsset: obs.quoteAsset,
+        poolAddress: obs.poolAddress,
+        initialReserveSolEq: obs.initialReserveSolEq,
+        slot: obs.slot,
+      }, {
+        observedAt: new Date(obs.observedAt).toISOString(),
+        slot: obs.slot,
+        source: sourceId,
+      }),
+      completedAt: isoOf(obs.observedAt),
+    });
+    return {
+      attemptId: started.attemptId,
+      ok: true,
+      outcome: 'SUCCESS',
+      receiptId,
+      enteredDenominator: obs.initialReserveSolEq >= 8,
+    };
+  } catch (error) {
+    const failed = await failClosed(db, started.attemptId, error);
+    return { ...failed, enteredDenominator: false };
+  }
 }
 
 /** Record a point-in-time pool book snapshot (E-03 inputs). */
 export async function recordPoolBook(
   db: StarDb,
   obs: Omit<PoolBookSnapshot, 'receiptId'>,
-): Promise<{ attemptId: string; receiptId: string }> {
-  const sourceId = obs.source === 'fixture' ? SOURCE_FIXTURE : obs.source;
-  const subjectId = await ensureMintSubject(db, obs.mint, new Date(obs.observedAt));
-  const attempt = await startAttempt(db, {
+): Promise<BookRecord> {
+  const sourceId = resolveSourceId(obs.source);
+  let subjectId = BLOCKED_SUBJECT;
+  try {
+    assertSourceEnabled(sourceId);
+    subjectId = await ensureMintSubject(db, obs.mint, new Date(obs.observedAt));
+  } catch {
+    subjectId = BLOCKED_SUBJECT;
+  }
+  const started = await beginAttempt(db, {
     projectId: subjectId,
     factKind: 'pool-book',
     sourceId,
     methodId: METHOD_BOOK,
-    observationKey: `${METHOD_BOOK}|${obs.poolAddress}|${obs.slot}`,
+    observationKey: `${METHOD_BOOK}|${obs.poolAddress}|${obs.slot}|${RECORDER_VERSION}`,
     requestParams: { mint: obs.mint, pool: obs.poolAddress, slot: obs.slot },
     startedAt: isoOf(obs.observedAt),
+    plan: true,
   });
-  const { receiptId } = await completeSuccess(db, {
-    attemptId: attempt.attemptId,
-    observationKey: attempt.observationKey,
-    projectId: subjectId,
-    fact: asMarketFact('pool-book', {
-      recorder: RECORDER_VERSION,
-      mint: obs.mint,
-      poolAddress: obs.poolAddress,
-      quoteReserveSol: obs.quoteReserveSol,
-      baseReserveRaw: obs.baseReserveRaw,
-      slot: obs.slot,
-    }, {
-      observedAt: new Date(obs.observedAt).toISOString(),
-      slot: obs.slot,
-      source: sourceId,
-    }),
-    completedAt: isoOf(obs.observedAt),
-  });
-  return { attemptId: attempt.attemptId, receiptId };
+  try {
+    assertSourceEnabled(sourceId);
+    const { receiptId } = await completeSuccess(db, {
+      attemptId: started.attemptId,
+      observationKey: started.observationKey,
+      projectId: subjectId,
+      fact: asMarketFact('pool-book', {
+        recorder: RECORDER_VERSION,
+        mint: obs.mint,
+        poolAddress: obs.poolAddress,
+        quoteReserveSol: obs.quoteReserveSol,
+        baseReserveRaw: obs.baseReserveRaw,
+        slot: obs.slot,
+      }, {
+        observedAt: new Date(obs.observedAt).toISOString(),
+        slot: obs.slot,
+        source: sourceId,
+      }),
+      completedAt: isoOf(obs.observedAt),
+    });
+    return { attemptId: started.attemptId, ok: true, outcome: 'SUCCESS', receiptId };
+  } catch (error) {
+    return failClosed(db, started.attemptId, error);
+  }
 }
 
 /**
@@ -157,38 +255,56 @@ export async function recordPoolBook(
 export async function recordPriorityFeeWindow(
   db: StarDb,
   obs: Array<Omit<PriorityFeeObservation, 'receiptId'>>,
-): Promise<{ attemptId: string; receiptId: string; sampleCount: number }> {
+): Promise<FeeRecord> {
   if (obs.length === 0) throw new Error('priority-fee window requires ≥1 sample');
-  const slots = obs.map((o) => o.slot);
   const first = obs[0];
-  const sourceId = first.source === 'fixture' ? SOURCE_FIXTURE : first.source;
+  const sourceId = resolveSourceId(first.source);
+  const slots = obs.map((o) => o.slot);
   const minSlot = Math.min(...slots);
   const maxSlot = Math.max(...slots);
-  const subjectId = await ensureMintSubject(db, `network:${minSlot}-${maxSlot}`, new Date(first.observedAt));
-  const attempt = await startAttempt(db, {
+  let subjectId = BLOCKED_SUBJECT;
+  try {
+    assertSourceEnabled(sourceId);
+    subjectId = await ensureMintSubject(db, `network:${minSlot}-${maxSlot}`, new Date(first.observedAt));
+  } catch {
+    subjectId = BLOCKED_SUBJECT;
+  }
+  const started = await beginAttempt(db, {
     projectId: subjectId,
     factKind: 'priority-fee',
     sourceId,
     methodId: METHOD_FEE,
-    observationKey: `${METHOD_FEE}|${minSlot}-${maxSlot}`,
+    observationKey: `${METHOD_FEE}|${minSlot}-${maxSlot}|${RECORDER_VERSION}`,
     requestParams: { window: [minSlot, maxSlot], metric: first.feeMetric },
     startedAt: isoOf(first.observedAt),
+    plan: true,
   });
-  const { receiptId } = await completeSuccess(db, {
-    attemptId: attempt.attemptId,
-    observationKey: attempt.observationKey,
-    projectId: subjectId,
-    fact: asMarketFact('priority-fee', {
-      recorder: RECORDER_VERSION,
-      feeMetric: first.feeMetric,
-      samples: obs.map((o) => ({ slot: o.slot, feeLamports: o.feeLamports })),
-    }, {
-      observedAt: new Date(first.observedAt).toISOString(),
-      slot: minSlot,
-      source: sourceId,
-    }),
-    completedAt: isoOf(first.observedAt),
-  });
-  return { attemptId: attempt.attemptId, receiptId, sampleCount: obs.length };
+  try {
+    assertSourceEnabled(sourceId);
+    const { receiptId } = await completeSuccess(db, {
+      attemptId: started.attemptId,
+      observationKey: started.observationKey,
+      projectId: subjectId,
+      fact: asMarketFact('priority-fee', {
+        recorder: RECORDER_VERSION,
+        feeMetric: first.feeMetric,
+        samples: obs.map((o) => ({ slot: o.slot, feeLamports: o.feeLamports })),
+      }, {
+        observedAt: new Date(first.observedAt).toISOString(),
+        slot: minSlot,
+        source: sourceId,
+      }),
+      completedAt: isoOf(first.observedAt),
+    });
+    return {
+      attemptId: started.attemptId,
+      ok: true,
+      outcome: 'SUCCESS',
+      receiptId,
+      sampleCount: obs.length,
+    };
+  } catch (error) {
+    const failed = await failClosed(db, started.attemptId, error);
+    return { ...failed, sampleCount: 0 };
+  }
 }
-

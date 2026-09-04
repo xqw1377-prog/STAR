@@ -84,6 +84,69 @@ describe('M1 recorder (fact-only)', () => {
     expect(fee.sampleCount).toBe(2);
   });
 
+  it('never drops a failed observation', async () => {
+    const { recordNewPoolBirth } = await import('./record');
+    const before: any = await probe.query('SELECT count(*)::int AS n FROM collection_attempt');
+    const beforeOut: any = await probe.query('SELECT count(*)::int AS n FROM attempt_outcome_event');
+    const res = await recordNewPoolBirth(db, {
+      mint: 'FailMint11111111111111111111111111111111',
+      dex: 'pump.fun-bonding-curve',
+      quoteAsset: 'SOL',
+      poolAddress: 'FailPool1111111111111111111111111111111',
+      initialReserveSolEq: -1,
+      observedAt: T0, effectiveAt: T0, slot: 300_000_020, source: 'fixture',
+    });
+    expect(res.ok).toBe(false);
+    expect(res.outcome).not.toBe('SUCCESS');
+    expect(res.enteredDenominator).toBe(false);
+    const after: any = await probe.query('SELECT count(*)::int AS n FROM collection_attempt');
+    const afterOut: any = await probe.query('SELECT count(*)::int AS n FROM attempt_outcome_event');
+    expect(after.rows[0].n - before.rows[0].n).toBe(1);
+    expect(afterOut.rows[0].n - beforeOut.rows[0].n).toBe(1);
+  });
+
+  it('fail-closes a non-ENABLED source onto the ledger', async () => {
+    const { recordNewPoolBirth } = await import('./record');
+    const res = await recordNewPoolBirth(db, {
+      mint: 'LiveMint11111111111111111111111111111111',
+      dex: 'pump.fun-bonding-curve',
+      quoteAsset: 'SOL',
+      poolAddress: 'LivePool1111111111111111111111111111111',
+      initialReserveSolEq: 20,
+      observedAt: T0, effectiveAt: T0, slot: 300_000_021, source: 'solana-program-log',
+    });
+    expect(res.ok).toBe(false);
+    expect(res.outcome).toBe('SOURCE_ERROR');
+    const row: any = await probe.query(
+      'SELECT outcome, error_code FROM attempt_outcome_event WHERE attempt_id = $1',
+      [res.attemptId],
+    );
+    expect(row.rows[0].outcome).toBe('SOURCE_ERROR');
+    expect(row.rows[0].error_code).toBe('SOURCE_NOT_ENABLED');
+    const facts: any = await probe.query(
+      'SELECT count(*)::int AS n FROM normalized_fact nf JOIN attempt_receipt_link l ON l.receipt_id = nf.receipt_id WHERE l.outcome_event_id IN (SELECT id FROM attempt_outcome_event WHERE attempt_id = $1)',
+      [res.attemptId],
+    );
+    expect(facts.rows[0].n).toBe(0);
+  });
+
+  it('records the fixture universe and measures U-04 coverage', async () => {
+    const { recordFixtureUniverse } = await import('./discover');
+    const { coverageAgainstSecondReplay } = await import('./coverage');
+    const { FIXTURE_NEW_POOLS } = await import('./fixture-universe');
+    const results = await recordFixtureUniverse(db);
+    expect(results).toHaveLength(FIXTURE_NEW_POOLS.length);
+    expect(results.every((r) => r.ok)).toBe(true);
+    const mints = FIXTURE_NEW_POOLS.map((p) => p.mint);
+    expect(coverageAgainstSecondReplay(mints, []).measurable).toBe(false);
+    const full = coverageAgainstSecondReplay(mints, mints);
+    expect(full.measurable).toBe(true);
+    expect(full.coverage).toBe(1);
+    const partial = coverageAgainstSecondReplay(mints.slice(0, 2), mints);
+    expect(partial.coverage).toBeCloseTo(2 / 3);
+    expect(partial.missing).toEqual([mints[2]]);
+  });
+
   it('CONSTRAINT: recorder imports no signals/optimization/wallet modules', async () => {
     const fs = await import('fs');
     const path = await import('path');

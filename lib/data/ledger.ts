@@ -8,6 +8,7 @@ import * as s from '@/db/schema';
 import type { StarDb } from '@/lib/db';
 import type { ChainFact } from './contract';
 import { ContractViolation } from './contract';
+import { SourceNotEnabledError } from './source-registry';
 import { blobKeyFor, blobScope, newLedgerId, sha256hex } from './hash';
 import { contestSiblings } from './relations';
 import { recordRefcount } from './refcount';
@@ -49,6 +50,9 @@ export function classifyCollectError(e: unknown): {
   const errorBody = msg.slice(0, 500);
   if (e instanceof ContractViolation) {
     return { outcome: 'PARTIAL', responseBytes: true, errorCode: 'CONTRACT', errorBody };
+  }
+  if (e instanceof SourceNotEnabledError) {
+    return { outcome: 'SOURCE_ERROR', responseBytes: false, errorCode: 'SOURCE_NOT_ENABLED', errorBody };
   }
   if (name === 'AbortError' || /\baborted\b/i.test(msg)) {
     return { outcome: 'ABORTED', responseBytes: false, errorCode: 'ABORTED', errorBody };

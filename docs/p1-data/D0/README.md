@@ -34,10 +34,14 @@ P1                         = NO-GO
 STAR 研究基础设施 = 部分实现
 STAR 赚钱能力     = NO-EVIDENCE
 M0-OBJECTIVE      = FROZEN
-M0-MEASUREMENT    = HOLD / UNSIGNED
-M1 / M2           = NOT STARTED
-M3 / M4 / M5 / M6 = DENIED
-资金权限          = DENIED
+M0-MEASUREMENT    = FROZEN rev1
+M1-BUILD          = IN PROGRESS
+M1-EVIDENCE       = NOT STARTED
+M2-BUILD          = NOT STARTED
+M3 / M4           = DENIED
+M5-BUILD          = AUTHORIZED（本轮不开工）
+M5-EVIDENCE / M6  = DENIED
+资金权限          = MICRO-LIVE-CANDIDATE
 ```
 
-未签 `M0 FROZEN rev1` 之前，不开发 M1 Recorder。资金、自动交易、钱包仍为 DENIED。
+已签 `M0 FROZEN rev1`。M1 Recorder 只记事实。M5-EVIDENCE / 扩容 / 正式成绩计入仍为 DENIED。
