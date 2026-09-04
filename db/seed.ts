@@ -7,8 +7,10 @@ import type { StarDb } from '@/lib/db';
 import * as s from './schema';
 import * as fixtures from './fixtures';
 import { refreshProject } from '@/lib/engine';
+import { backfillLedgerFromEvidence, wipeLedger } from '@/lib/data/ledger-seed';
 
 export async function seedDatabase(db: StarDb) {
+  await wipeLedger(db);
   await db.delete(s.graphEdges);
   await db.delete(s.wallets);
   await db.delete(s.entities);
@@ -38,6 +40,8 @@ export async function seedDatabase(db: StarDb) {
     const evaluation = await refreshProject(db, p.id);
     evaluations[p.id] = { allPass: evaluation.allPass, score: evaluation.score?.total ?? 0 };
   }
+
+  await backfillLedgerFromEvidence(db);
 
   return { ok: true, projects: fixtures.projects.length, evidence: fixtures.evidence.length, evaluations };
 }

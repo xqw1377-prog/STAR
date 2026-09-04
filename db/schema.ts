@@ -148,8 +148,197 @@ export const decisions = pgTable('decisions', {
   id: serial('id').primaryKey(),
   projectId: text('project_id').notNull().references(() => projects.id),
   conclusion: text('conclusion').notNull(),
- falsification: text('falsification'),
+  falsification: text('falsification'),
   nextReviewAt: timestamp('next_review_at', { withTimezone: true, mode: 'date' }),
   owner: text('owner'),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+/** D1-A implementable subset. payload_ref / fact_payload_ref are dangling handles (no FK). */
+export const collectionPlanItems = pgTable('collection_plan_item', {
+  id: text('id').primaryKey(),
+  sourceId: text('source_id').notNull(),
+  methodId: text('method_id').notNull(),
+  subjectProject: text('subject_project').notNull(),
+  expectedFactKind: text('expected_fact_kind').notNull(),
+  planVersion: text('plan_version').notNull(),
+  observationTemplate: text('observation_template').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  retiredAt: timestamp('retired_at', { withTimezone: true, mode: 'date' }),
+});
+
+export const rawBlobs = pgTable('raw_blob', {
+  blobKey: text('blob_key').primaryKey(),
+  payloadHash: text('payload_hash').notNull(),
+  scope: text('scope').notNull(),
+  body: text('body').notNull(),
+  length: integer('length').notNull(),
+  mime: text('mime').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const collectionAttempts = pgTable('collection_attempt', {
+  id: text('id').primaryKey(),
+  observationKey: text('observation_key').notNull(),
+  collectionPlanItemId: text('collection_plan_item_id'),
+  projectId: text('project_id').notNull(),
+  factKind: text('fact_kind').notNull(),
+  sourceId: text('source_id').notNull(),
+  methodId: text('method_id').notNull(),
+  attemptOrigin: text('attempt_origin').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }).notNull(),
+  leaseExpiresAt: timestamp('lease_expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+  retryOfAttemptId: text('retry_of_attempt_id'),
+  requestParamsSanitized: text('request_params_sanitized').notNull().default('{}'),
+  timingQuality: text('timing_quality').notNull().default('LIVE'),
+});
+
+export const attemptOutcomes = pgTable('attempt_outcome_event', {
+  id: text('id').primaryKey(),
+  attemptId: text('attempt_id').notNull().unique(),
+  outcome: text('outcome').notNull(),
+  responseBytesReceived: integer('response_bytes_received').notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }).notNull(),
+  errorCode: text('error_code'),
+  errorBodyHash: text('error_body_hash'),
+  errorBodyRef: text('error_body_ref'),
+  retentionClass: text('retention_class').notNull().default('NONE'),
+});
+
+export const rawReceipts = pgTable('raw_receipt', {
+  id: text('id').primaryKey(),
+  receiptKey: text('receipt_key').notNull().unique(),
+  observationKey: text('observation_key').notNull(),
+  creatorOutcomeEventId: text('creator_outcome_event_id').notNull().unique(),
+  status: text('status').notNull(),
+  payloadHash: text('payload_hash').notNull(),
+  payloadRef: text('payload_ref').notNull(),
+  anchorSlot: integer('anchor_slot'),
+  anchorTime: timestamp('anchor_time', { withTimezone: true, mode: 'date' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const attemptReceiptLinks = pgTable('attempt_receipt_link', {
+  id: text('id').primaryKey(),
+  outcomeEventId: text('outcome_event_id').notNull().unique(),
+  receiptId: text('receipt_id').notNull(),
+});
+
+export const normalizedFacts = pgTable('normalized_fact', {
+  id: text('id').primaryKey(),
+  receiptId: text('receipt_id').notNull(),
+  factKind: text('fact_kind').notNull(),
+  subjectType: text('subject_type').notNull(),
+  subjectId: text('subject_id').notNull(),
+  payloadHash: text('payload_hash').notNull(),
+  factPayloadRef: text('fact_payload_ref').notNull(),
+  parserVersion: text('parser_version').notNull(),
+  factLocalKey: text('fact_local_key').notNull().default('singleton'),
+  effectiveTimeKind: text('effective_time_kind').notNull().default('OBSERVATION_BOUND'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const artifactRegistry = pgTable('artifact_registry', {
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(),
+  version: text('version').notNull(),
+  contentHash: text('content_hash').notNull(),
+  contentRef: text('content_ref').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const receiptRelations = pgTable('receipt_relation', {
+  id: text('id').primaryKey(),
+  receiptId: text('receipt_id').notNull(),
+  relatedReceiptId: text('related_receipt_id').notNull(),
+  relation: text('relation').notNull(),
+  basis: text('basis').notNull(),
+  creatorRef: text('creator_ref').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const contestResolutions = pgTable('contest_resolution_event', {
+  id: text('id').primaryKey(),
+  contestedRelation: text('contested_relation').notNull(),
+  basis: text('basis').notNull(),
+  basisVersion: text('basis_version').notNull(),
+  resolvedReceiptId: text('resolved_receipt_id').notNull(),
+  authorizationRef: text('authorization_ref').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const factRelations = pgTable('fact_relation', {
+  id: text('id').primaryKey(),
+  factA: text('fact_a').notNull(),
+  factB: text('fact_b').notNull(),
+  relation: text('relation').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const factResolutions = pgTable('fact_resolution_event', {
+  id: text('id').primaryKey(),
+  factRelationId: text('fact_relation_id').notNull(),
+  basis: text('basis').notNull(),
+  basisVersion: text('basis_version').notNull(),
+  resolvedFactId: text('resolved_fact_id').notNull(),
+  authorizationRef: text('authorization_ref').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const factErasures = pgTable('fact_erasure_event', {
+  id: text('id').primaryKey(),
+  factId: text('fact_id').notNull(),
+  disposition: text('disposition').notNull(),
+  scope: text('scope').notNull(),
+  authorizationRef: text('authorization_ref').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const rawDispositions = pgTable('raw_disposition_event', {
+  id: text('id').primaryKey(),
+  receiptId: text('receipt_id').notNull(),
+  eventType: text('event_type').notNull(),
+  actor: text('actor').notNull(),
+  reason: text('reason').notNull(),
+  authorizationRef: text('authorization_ref').notNull(),
+  scope: text('scope').notNull(),
+  idempotencyKey: text('idempotency_key').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const blobRefcounts = pgTable('blob_refcount_event', {
+  id: text('id').primaryKey(),
+  blobKey: text('blob_key').notNull(),
+  eventType: text('event_type').notNull(),
+  delta: integer('delta').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const interpretationContexts = pgTable('interpretation_context', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull(),
+  asOf: timestamp('as_of', { withTimezone: true, mode: 'date' }).notNull(),
+  mode: text('mode').notNull(),
+  contractArtifactId: text('contract_artifact_id').notNull(),
+  ruleArtifactId: text('rule_artifact_id').notNull(),
+  sourcePriorityArtifactId: text('source_priority_artifact_id').notNull(),
+  eligibilityPolicyArtifactId: text('eligibility_policy_artifact_id').notNull(),
+  scoringArtifactId: text('scoring_artifact_id'),
+  engineVersion: text('engine_version'),
+  frozenBundle: text('frozen_bundle'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const interpretationContextFacts = pgTable('interpretation_context_fact', {
+  contextId: text('context_id').notNull(),
+  factId: text('fact_id').notNull(),
+});
+
+export const interpretationContextParsers = pgTable('interpretation_context_parser', {
+  contextId: text('context_id').notNull(),
+  sourceId: text('source_id').notNull(),
+  methodId: text('method_id').notNull(),
+  parserId: text('parser_id').notNull(),
+  factKind: text('fact_kind').notNull(),
+  parserArtifactId: text('parser_artifact_id').notNull(),
 });

@@ -5,6 +5,8 @@ import { drizzle } from 'drizzle-orm/pglite';
 import * as schema from '@/db/schema';
 import * as fixtures from '@/db/star-fixtures';
 import { refreshProject } from './star-engine';
+import { stripSqlComments } from '@/db/apply-sql';
+import { backfillLedgerFromEvidence } from '@/lib/data/ledger-seed';
 
 export type StarDb = ReturnType<typeof drizzle<typeof schema>>;
 
@@ -17,18 +19,34 @@ export async function initDb(): Promise<StarDb> {
   pgliteInstance = new PGlite('idb://star');
   await pgliteInstance.waitReady;
 
-  const initSql = await fetch('/init.sql').then(r => r.text());
-  const cleaned = initSql
-    .split('\n')
-    .map(l => l.replace(/^--> statement-breakpoint$/g, ''))
-    .filter(l => !/^-->/.test(l.trim()))
-    .join('\n');
-
+  const initSql = await fetch('/init.sql').then((r) => r.text());
   try {
     await pgliteInstance.query('SELECT 1 FROM projects LIMIT 1');
   } catch {
-    await pgliteInstance.exec(cleaned);
+    await pgliteInstance.exec(stripSqlComments(initSql));
   }
+  try {
+    await pgliteInstance.query('SELECT 1 FROM collection_attempt LIMIT 1');
+  } catch {
+    const d1 = await fetch('/init-d1.sql').then((r) => r.text());
+    await pgliteInstance.exec(stripSqlComments(d1));
+  }
+  try {
+    await pgliteInstance.query('SELECT 1 FROM receipt_relation LIMIT 1');
+  } catch {
+    const d1b = await fetch('/init-d1b.sql').then((r) => r.text());
+    await pgliteInstance.exec(stripSqlComments(d1b));
+  }
+  try {
+    await pgliteInstance.query('SELECT 1 FROM interpretation_context LIMIT 1');
+  } catch {
+    const d1c = await fetch('/init-d1c.sql').then((r) => r.text());
+    const d1t = await fetch('/init-d1-triggers.sql').then((r) => r.text());
+    await pgliteInstance.exec(stripSqlComments(d1c));
+    await pgliteInstance.exec(d1t);
+  }
+  const d1d = await fetch('/init-d1d.sql').then((r) => r.text());
+  await pgliteInstance.exec(stripSqlComments(d1d));
 
   dbInstance = drizzle(pgliteInstance, { schema });
 
@@ -39,6 +57,10 @@ export async function initDb(): Promise<StarDb> {
     const timelineRows = await dbInstance.select().from(schema.evidence).limit(200);
     const hasTimeline = timelineRows.some((r: any) => r.type === 'mint-authority');
     if (!hasTimeline) await reseed(dbInstance);
+    else {
+      const attempts = await dbInstance.select().from(schema.collectionAttempts).limit(1);
+      if (!attempts.length) await backfillLedgerFromEvidence(dbInstance);
+    }
   } else {
     await seed(dbInstance);
   }
@@ -47,6 +69,8 @@ export async function initDb(): Promise<StarDb> {
 }
 
 async function reseed(db: StarDb) {
+  const { wipeLedger } = await import('@/lib/data/ledger-seed');
+  await wipeLedger(db);
   await db.delete(schema.graphEdges);
   await db.delete(schema.wallets);
   await db.delete(schema.entities);
@@ -77,6 +101,7 @@ async function seed(db: StarDb) {
   for (const p of fixtures.projects) {
     await refreshProject(db, p.id);
   }
+  await backfillLedgerFromEvidence(db);
 }
 
 export function getDb(): StarDb {

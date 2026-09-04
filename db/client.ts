@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import * as schema from './schema';
+import { ensureCoreAndD1 } from './apply-sql';
 
 /**
  * PGlite must run as a real node module — bundling it breaks its wasm/sqlite
@@ -36,16 +37,7 @@ async function build() {
   const PGlite = loadPglite();
   const pglite = new PGlite(DATA_DIR);
   await pglite.waitReady;
-  try {
-    await pglite.query('SELECT 1 FROM projects LIMIT 1');
-  } catch {
-    const sql = await readFile(join(process.cwd(), 'public', 'init.sql'), 'utf8');
-    const cleaned = sql
-      .split('\n')
-      .filter((line) => !/^-->\s*statement-breakpoint\s*$/.test(line.trim()))
-      .join('\n');
-    await pglite.exec(cleaned);
-  }
+  await ensureCoreAndD1(pglite, (name) => readFile(join(process.cwd(), 'public', name), 'utf8'));
   return drizzle(pglite, { schema });
 }
 

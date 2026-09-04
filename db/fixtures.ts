@@ -46,7 +46,7 @@ const MINT_TO_PROJECT: Record<string, string> = {
   'smy44444444444444444444444444444': 'proj-honeypot',
 };
 
-export const evidence: InferInsertModel<typeof s.evidence>[] = fixtureTimeline(now).map(({ fact }) => ({
+const timelineEvidence: InferInsertModel<typeof s.evidence>[] = fixtureTimeline(now).map(({ fact }) => ({
   projectId: MINT_TO_PROJECT[fact.mint],
   type: fact.kind,
   observedAt: new Date(fact.observedAt),
@@ -59,6 +59,37 @@ export const evidence: InferInsertModel<typeof s.evidence>[] = fixtureTimeline(n
   conclusion: (CONCLUSIONS[fact.kind] ?? (() => ''))(fact.payload),
   conflictWith: null,
 }));
+
+const snap = (
+  projectId: string,
+  type: 'narrative-snapshot' | 'lifecycle-transition',
+  daysAgo: number,
+  payload: Record<string, unknown>,
+): InferInsertModel<typeof s.evidence> => {
+  const observedAt = dayAgo(daysAgo);
+  return {
+    projectId,
+    type,
+    observedAt,
+    effectiveAt: observedAt,
+    ingestedAt: new Date(observedAt.getTime() + 3600000),
+    source: 'fixture',
+    sourceUrl: '',
+    hash: stableHash(`${type}|${projectId}|${observedAt.toISOString()}`),
+    payload,
+    conclusion: type === 'lifecycle-transition' ? `lifecycle ${String(payload.stage)}` : 'narrative snapshot',
+    conflictWith: null,
+  };
+};
+
+export const evidence: InferInsertModel<typeof s.evidence>[] = [
+  ...timelineEvidence,
+  snap('proj-neural', 'lifecycle-transition', 18, { stage: 'SEED' }),
+  snap('proj-neural', 'lifecycle-transition', 9, { stage: 'VERIFIED' }),
+  snap('proj-neural', 'narrative-snapshot', 18, { novelty: 0.4, velocity: 0.3, breadth: 0.2, onChainConfirm: 0.1, survival: 0.2 }),
+  snap('proj-neural', 'narrative-snapshot', 9, { novelty: 0.8, velocity: 0.7, breadth: 0.6, onChainConfirm: 0.7, survival: 0.8 }),
+  snap('proj-rocket', 'lifecycle-transition', 10, { stage: 'CROWDING' }),
+];
 
 export const chains: InferInsertModel<typeof s.chains>[] = [
   { id: 'solana', name: 'Solana' },
