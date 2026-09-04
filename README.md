@@ -4,27 +4,24 @@
 
 **基线状态**：`BASELINE-CANDIDATE`（已固定提交，见 `docs/verification/VERIFICATION.md`）。`star/`（沙箱参考实现）冻结为只读参考。
 
-**边界（冻结决策）**：只读 · 不连接钱包 · 不自动交易。任何页面与 API 都不包含签名、私钥或广播能力。
+**运行时边界**：只读夹具 · 无钱包模块 · 无广播。纸面 rev2 授权过 M5-BUILD，本轮不开工。能力以 `docs/alpha/CAPABILITY-LEDGER.md` 与 `GET /api/capability` 为准。
 
-## 产品口径（2026-09-04 收紧；覆盖「能力已经对齐」）
+## 产品口径（能力对齐：纸面 ≠ 运行时）
 
 ```text
-STAR 研究基础设施 = 部分实现
-STAR 赚钱能力     = NO-EVIDENCE
-M0-OBJECTIVE      = FROZEN
-M0-MEASUREMENT    = FROZEN rev1
-M1-BUILD          = IN PROGRESS
+赚钱能力          = NO-EVIDENCE
+研究基础设施      = PARTIAL
+M0-MEASUREMENT    = FROZEN rev1     （纸面）
+M0-BOUNDARY       = FROZEN rev2     （纸面；运行时仍无钱包）
+M1-BUILD          = IN PROGRESS     （库存在，未接 API/UI）
 M1-EVIDENCE       = NOT STARTED
-M2-BUILD          = NOT STARTED
-M3 / M4           = DENIED
-M5-BUILD          = AUTHORIZED（本轮不开工）
-M5-EVIDENCE / M6  = DENIED
-资金权限          = MICRO-LIVE-CANDIDATE
+M5-BUILD          = AUTHORIZED-PAPER（本轮不开工）
+资金运行时        = DENIED
 P1                = NO-GO
 ```
 
 六门禁、分数、页面、单测通过，只证明研究工具可运行，不证明存在 Alpha。  
-测量合同见 `docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md`（`M0 FROZEN rev1`）。  
+台账：`docs/alpha/CAPABILITY-LEDGER.md`。合同：`docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md`。  
 M1 Recorder 只记事实。回测器与策略优化器在 M1-EVIDENCE 完成前禁止。
 
 说明：网络冒烟中的买卖报价仅证明**报价端点可响应**，不证明模拟与真实路由一致、指定规模可成交、拥堵/失败概率/费用准确，也不代表数据来源已获准使用。持币事实在公共 RPC 限流下不可得（fail-closed → 门禁 UNKNOWN），实体调整集中度未实现。PGlite 的运行时绝对路径加载是**环境修复而非稳定架构**，已登记为部署债务（`docs/verification/VERIFICATION.md`）。
@@ -73,6 +70,7 @@ curl -X POST localhost:3000/api/seed
 curl -X POST localhost:3000/api/collect -d '{"projectId":"proj-neural"}'
 curl -X POST localhost:3000/api/collect -d '{"provider":"solana-rpc"}'   # → 403（DATA-006）
 curl localhost:3000/api/health                                # liveness（commit/schema/时间，无秘密）
+curl localhost:3000/api/capability                            # 纸面 vs 运行时能力（只读）
 ```
 
 真实只读冒烟（工程验证用途；冒烟入口仅存在于测试模块图，不在生产构建中）：
@@ -94,6 +92,7 @@ STAR_SMOKE=1 npx vitest run lib/data/rpc-smoke.test.ts
 
 ## 文档
 
+- [能力台账](docs/alpha/CAPABILITY-LEDGER.md)（纸面 vs 运行时，单一真相）
 - [赚钱能力合同 rev1](docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md)（M0-MEASUREMENT = FROZEN）
 - [M0.1 签署工作单](docs/alpha/M0.1-ACCEPTANCE-WORKSHEET.md)（22 ACCEPT）
 - [M0.2 边界改写](docs/alpha/M0.2-REWRITE-WORKSHEET.md)（rev2 ACCEPTED；本轮不开工 M5）
@@ -107,6 +106,6 @@ STAR_SMOKE=1 npx vitest run lib/data/rpc-smoke.test.ts
 
 ## P1 之前的硬性规则
 
-1. 不接钱包、不做交易、不做 BNB Chain（按冻结决策）。
+1. 运行时不接钱包、不做交易、不做 BNB Chain。rev2 纸面授权 M5-BUILD，本轮不开工。
 2. 真实数据源接入前必须先在许可证矩阵中变更为 ENABLED。
 3. 历史语料保持 NO-EVIDENCE，不得用回填数据做性能声明。

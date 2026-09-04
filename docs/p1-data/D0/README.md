@@ -41,7 +41,8 @@ M2-BUILD          = NOT STARTED
 M3 / M4           = DENIED
 M5-BUILD          = AUTHORIZED（本轮不开工）
 M5-EVIDENCE / M6  = DENIED
-资金权限          = MICRO-LIVE-CANDIDATE
+资金政策          = MICRO-LIVE-CANDIDATE（纸面）
+资金运行时        = DENIED
 ```
 
-已签 `M0 FROZEN rev1`。M1 Recorder 只记事实。M5-EVIDENCE / 扩容 / 正式成绩计入仍为 DENIED。
+已签 `M0 FROZEN rev1`。能力以 `docs/alpha/CAPABILITY-LEDGER.md` 为准。M1 Recorder 只记事实。本轮不开工 M5。

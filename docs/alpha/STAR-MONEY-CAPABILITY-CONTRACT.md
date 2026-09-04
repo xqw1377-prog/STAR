@@ -44,8 +44,10 @@ rev0 **不能**单独作为赚钱能力判定合同。
 本轮不开工 M5-BUILD：开发顺序仍是 M1-BUILD → 连续记录 ≥7 天 → M1-EVIDENCE。
 
 适用范围：`star-web` 唯一运行应用。  
+能力台账（纸面 vs 运行时）：`docs/alpha/CAPABILITY-LEDGER.md`。  
 取代：质量审计阶段「不接 solana-rpc」限制（该限制只约束当时的页面审计）。  
-不取代：资金 `DENIED`、无杠杆、不借款、不自动交易、不接触偿债资金。
+不取代：无杠杆、不借款、不接触偿债资金。  
+运行时：无钱包模块，资金路径 = DENIED。纸面资金政策 = MICRO-LIVE-CANDIDATE。本轮不开工 M5-BUILD。
 
 签署 `M0 FROZEN rev1` 的条件：本文 M0.1 五章被接受或逐条改写后重新冻结，且三个对象都有可执行定义：
 

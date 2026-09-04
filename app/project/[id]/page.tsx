@@ -85,7 +85,7 @@ export default function ProjectAudit() {
             <span>就绪度 {project.decisionReadiness.toFixed(2)}</span>
           </div>
         </div>
-        <Button size="sm" onClick={onRefresh} disabled={loading}>{loading ? '刷新中…' : '重新评估'}</Button>
+        <Button size="sm" onClick={onRefresh} disabled={loading}>{loading ? '重算中…' : '按已有证据重算'}</Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

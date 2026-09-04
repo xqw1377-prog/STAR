@@ -47,7 +47,7 @@ export default function StarDesk() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{narratives.length}</div>
-            <div className="text-xs text-muted-foreground">Solana 上识别出的叙事</div>
+            <div className="text-xs text-muted-foreground">夹具中的叙事簇，不是主网发现</div>
           </CardContent>
         </Card>
         <Card>
@@ -56,7 +56,7 @@ export default function StarDesk() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{passList.length}</div>
-            <div className="text-xs text-muted-foreground">当前就绪度 = 可决策</div>
+            <div className="text-xs text-muted-foreground">夹具上六门禁全通过，不是可成交机会</div>
           </CardContent>
         </Card>
         <Card>

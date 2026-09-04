@@ -6,6 +6,7 @@
 import { CONTRACT_VERSION, type ReadonlyChainProvider } from './contract';
 import { createSolanaRpcProvider } from './solana-rpc';
 import { createFixtureProvider } from './fixture-provider';
+import { CAPABILITY } from '@/lib/alpha/capability';
 import { SOURCE_REGISTRY } from './source-registry';
 
 export type ProviderKind = 'fixture' | 'solana-rpc';
@@ -33,7 +34,8 @@ export function providerStatus() {
     registry: SOURCE_REGISTRY,
     rpcConfigured: Boolean(process.env.STAR_RPC_URL),
     readOnly: true,
-    wallet: false,
-    trading: false,
+    wallet: CAPABILITY.runtime.walletModule,
+    trading: CAPABILITY.runtime.autoTrade,
+    capability: CAPABILITY.id,
   };
 }
