@@ -28,5 +28,16 @@ P1                         = NO-GO
 | verify_d0_contract.py | 合同 lint 脚本（python3 docs/p1-data/D0/verify_d0_contract.py，零依赖；**lint 非一致性证明**，人工交叉评审仍然必需） |
 
 边界：D0 设计包本身仍是 DESIGN-ONLY。质量审计阶段的「不接真实来源」已被  
-`docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md`（M0）取代：M1 起允许只读接入 Solana 真源。  
-资金、自动交易、钱包仍为 DENIED。
+`docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md` rev0 取代。当前口径：
+
+```text
+STAR 研究基础设施 = 部分实现
+STAR 赚钱能力     = NO-EVIDENCE
+M0-OBJECTIVE      = FROZEN
+M0-MEASUREMENT    = HOLD / UNSIGNED
+M1 / M2           = NOT STARTED
+M3 / M4 / M5 / M6 = DENIED
+资金权限          = DENIED
+```
+
+未签 `M0 FROZEN rev1` 之前，不开发 M1 Recorder。资金、自动交易、钱包仍为 DENIED。
