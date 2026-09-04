@@ -92,6 +92,8 @@ STAR_SMOKE=1 npx vitest run lib/data/rpc-smoke.test.ts
 ## 文档
 
 - [赚钱能力合同 rev0](docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md)（M0-MEASUREMENT = HOLD / UNSIGNED）
+- [M0.1 签署工作单](docs/alpha/M0.1-ACCEPTANCE-WORKSHEET.md)（22 项裁定列为空）
+- [M0.2 边界改写提案](docs/alpha/M0.2-REWRITE-WORKSHEET.md)（UNSIGNED，不构成签署）
 - [M0.1 五章终审](docs/alpha/M0.1-FINAL-REVIEW.md)（待签确定值已写齐，未接受不得签 rev1）
 - [产品定义 v1.0](docs/product/README.md)（docx SHA-256 为准）
 - [P0-DATA 基线](docs/p0-data/BASELINE.md)
