@@ -11,6 +11,9 @@ let db: import('@/lib/db').StarDb;
 let schema: typeof import('@/db/schema');
 let recordNewPoolBirth: typeof import('./record').recordNewPoolBirth;
 let recordFixtureUniverse: typeof import('./discover').recordFixtureUniverse;
+let recordFixtureBooks: typeof import('./discover').recordFixtureBooks;
+let fixtureCoverage: typeof import('./discover').fixtureCoverage;
+let latencyFromLedger: typeof import('./latency').latencyFromLedger;
 let COLLECTOR_VERSION: typeof import('./version').COLLECTOR_VERSION;
 let FIXTURE_NEW_POOLS: typeof import('./fixture-universe').FIXTURE_NEW_POOLS;
 
@@ -21,7 +24,8 @@ beforeAll(async () => {
   await seedDatabase(db);
   schema = await import('@/db/schema');
   ({ recordNewPoolBirth } = await import('./record'));
-  ({ recordFixtureUniverse } = await import('./discover'));
+  ({ recordFixtureUniverse, recordFixtureBooks, fixtureCoverage } = await import('./discover'));
+  ({ latencyFromLedger } = await import('./latency'));
   ({ COLLECTOR_VERSION } = await import('./version'));
   ({ FIXTURE_NEW_POOLS } = await import('./fixture-universe'));
 });
@@ -64,10 +68,56 @@ describe('M1 Market Recorder', () => {
     const src = [
       readFileSync(new URL('./record.ts', import.meta.url), 'utf8'),
       readFileSync(new URL('./discover.ts', import.meta.url), 'utf8'),
+      readFileSync(new URL('./coverage.ts', import.meta.url), 'utf8'),
+      readFileSync(new URL('./latency.ts', import.meta.url), 'utf8'),
       readFileSync(new URL('./index.ts', import.meta.url), 'utf8'),
     ].join('\n');
     expect(src).not.toMatch(/from '@\/lib\/engine'/);
     expect(src).not.toMatch(/from '@\/lib\/domain/);
     expect(src).not.toMatch(/from '@\/lib\/oracle/);
+  });
+
+  it('records point-in-time pool books', async () => {
+    const results = await recordFixtureBooks(db);
+    expect(results.every((r) => r.ok)).toBe(true);
+    const facts = await db.select().from(schema.normalizedFacts);
+    expect(facts.some((f) => f.factKind === 'pool-book')).toBe(true);
+  });
+
+  it('computes U-04 coverage and refuses to call it evidence', () => {
+    const report = fixtureCoverage(FIXTURE_NEW_POOLS.map((p) => p.mint));
+    expect(report.missed).toEqual(['MissedMint1111111111111111111111111111111']);
+    expect(report.coverage).toBe(0.75);
+    expect(report.evidenceReady).toBe(false);
+    expect(fixtureCoverage([]).independentMints.length).toBeGreaterThan(0);
+    expect(fixtureCoverage([]).coverage).toBe(0);
+  });
+
+  it('keeps observed_at on backfill and excludes it from live latency', async () => {
+    const birth = {
+      ...FIXTURE_NEW_POOLS[0],
+      mint: 'BackfillMint111111111111111111111111111',
+    };
+    const result = await recordNewPoolBirth(db, birth, { timingQuality: 'BACKFILLED_UNKNOWN' });
+    expect(result.ok).toBe(true);
+    const [attempt] = await db.select().from(schema.collectionAttempts)
+      .where(eq(schema.collectionAttempts.id, result.attemptId));
+    expect(attempt.timingQuality).toBe('BACKFILLED_UNKNOWN');
+    const latency = await latencyFromLedger(db);
+    expect(latency.liveOnly).toBe(true);
+    expect(latency.n).toBeGreaterThan(0);
+  });
+
+  it('fail-closes real program-log source and still writes the attempt', async () => {
+    const birth = {
+      ...FIXTURE_NEW_POOLS[0],
+      mint: 'RpcMint111111111111111111111111111111111',
+      source: 'solana-program-log' as const,
+    };
+    const before = (await db.select().from(schema.collectionAttempts)).length;
+    const result = await recordNewPoolBirth(db, birth);
+    expect(result.ok).toBe(false);
+    const after = (await db.select().from(schema.collectionAttempts)).length;
+    expect(after - before).toBe(1);
   });
 });

@@ -42,3 +42,21 @@ export const FIXTURE_NEW_POOLS: NewPoolBirth[] = [
     rawReceipt: { program: 'raydium-cpmm', ix: 'initialize', slot: 1121 },
   },
 ];
+
+/** Same three program IDs / slot window, plus one birth the recorder did not see. */
+export const FIXTURE_INDEPENDENT_INDEX: string[] = [
+  ...FIXTURE_NEW_POOLS.map((p) => p.mint),
+  'MissedMint1111111111111111111111111111111',
+];
+
+export const FIXTURE_POOL_BOOKS = FIXTURE_NEW_POOLS.map((p) => ({
+  mint: p.mint,
+  poolAddress: p.poolAddress,
+  quoteReserve: p.initialReserveSolEq,
+  baseReserve: 1_000_000,
+  observedAt: p.observedAt,
+  effectiveAt: p.effectiveAt,
+  slot: p.slot,
+  source: p.source,
+  rawReceipt: { kind: 'book', slot: p.slot },
+}));
