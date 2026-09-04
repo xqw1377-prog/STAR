@@ -14,7 +14,7 @@ export default defineConfig({
     : {
         command: 'npx next start -p 3100',
         port: 3100,
-        reuseExistingServer: true,
+        reuseExistingServer: false,
         timeout: 120000,
       },
 });

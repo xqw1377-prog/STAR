@@ -49,7 +49,7 @@ export function DbProvider({ children }: { children: ReactNode }) {
       >
         <div className="max-w-md space-y-4 text-center">
           <div className="font-mono text-sm font-bold tracking-widest text-destructive">
-            DATA UNAVAILABLE
+            数据不可用
           </div>
           <p className="text-sm text-muted-foreground">本地研究数据初始化失败。</p>
           <p className="text-sm text-muted-foreground">
@@ -71,7 +71,7 @@ export function DbProvider({ children }: { children: ReactNode }) {
     <div className="min-h-screen flex items-center justify-center text-slate-500">
       <div className="text-center space-y-2">
         <div className="text-lg font-medium">STAR 初始化中…</div>
-        <div className="text-sm">正在加载 PGlite、建表并灌入 Fixtures</div>
+        <div className="text-sm">正在加载本地库、建表并灌入夹具</div>
       </div>
     </div>
   );

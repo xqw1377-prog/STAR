@@ -10,14 +10,14 @@
 
 ```text
 Six-gate structure       = PASS
+Gate quality             = FAIL-CLOSED PATHS CLOSED ON FIXTURES
 Synthetic vertical slice = PASS
-Point-in-time replay     = PASS on fixtures
-Read-only network smoke  = PASS-WITH-DEGRADATION
-Holder source            = BLOCKED
-Entity resolution        = NOT IMPLEMENTED
-Exit simulation          = PARTIAL
+Point-in-time replay     = PARTIAL (evidence + research snapshots)
+Read-only / no wallet    = PASS
 Source licensing         = HOLD
 Historical 50+100        = NO-EVIDENCE
+REAL DATA                = NO-EVIDENCE
+PUBLIC DEPLOYMENT        = NO-GO without STAR_ALLOW_WRITE
 P1                       = NO-GO
 ```
 
@@ -26,20 +26,22 @@ P1                       = NO-GO
 ## 架构
 
 ```text
-ReadonlyChainProvider ──assertFact──▶ evidence(observed/effective/ingested)
+ReadonlyChainProvider ──assertFact──▶ evidence + D1 账本（attempt/receipt/fact）
         │  fixture（唯一 ENABLED）            │
         │  solana-rpc（被注册表阻断）          ▼
-        └─ collect.ts                   lib/domain/temporal.ts（泄漏守卫）
+        └─ collect.ts                   lib/domain（门禁/时态/叙事/生命周期）
+                                            ▼
+                         HISTORICAL 冻结上下文 │ REINTERPRET 标记当前工件
                                             ▼
                                     lib/engine.ts 六门禁（fail-closed）
                                             ▼
                                  score（仅六门禁全 PASS 时产生）
 ```
 
-- **数据契约** `lib/data/contract.ts` — `solana-readonly@2`：七类事实（mint/freeze 权限、持币分布、流动性、买卖模拟、关联钱包、程序验证），每个事实带 `observedAt` / `slot` / `source`。
+- **数据契约** `lib/data/contract.ts` — `solana-readonly@3`：七类事实 + `graphIngested`；每个事实带 `observedAt` / `slot` / `source`。
 - **时态内核** `lib/domain/temporal.ts` — 时点截止、确定性平局（observedAt→ingestedAt→id）。引擎与回放共用，未来数据泄漏被结构性禁止；违反时态不变式的证据被隔离。
 - **六项强制门禁** `lib/engine.ts` — 代币权限 / 买卖模拟（双腿必需）/ 流动性与退出 / 持币集中度 / **关联钱包（独立门禁，集中度 PASS 不能替代）** / 程序验证。任何 FAIL 或 UNKNOWN 都阻断评分（fail-closed）。
-- **来源注册表** `lib/data/source-registry.ts` — 代码级镜像许可证矩阵；真实 RPC/Jupiter/DexScreener 全部阻断，`STAR_ENGINEERING_OVERRIDE=1` 仅供工程冒烟。
+- **来源注册表** `lib/data/source-registry.ts` — 代码级镜像许可证矩阵；真实 RPC/Jupiter/DexScreener 全部阻断。冒烟入口不在生产图。
 - **存储** — 浏览器 PGlite(`idb://star`) + 服务端 PGlite(`.pglite/`)，同一份 `public/init.sql` 建表、同一份时间线夹具。
 
 ## 门禁与分数的关系
@@ -51,7 +53,7 @@ ReadonlyChainProvider ──assertFact──▶ evidence(observed/effective/inge
 ```bash
 npm run dev            # http://localhost:3000（浏览器自动建表并灌入夹具）
 npm run typecheck      # tsc --noEmit
-npm test               # vitest（46 项，不含真实网络）
+npm test               # vitest（不含真实网络）
 STAR_SMOKE=1 npm run test:smoke   # 真实主网只读冒烟（需工程覆盖，见下）
 npm run build && npm start
 ```
@@ -59,10 +61,12 @@ npm run build && npm start
 服务端 API：
 
 ```bash
-curl -X POST localhost:3000/api/seed                       # 灌入时间线夹具并全量评估
-curl localhost:3000/api/collect                            # 来源注册表状态
+curl localhost:3000/api/collect                            # 来源状态（不含 RPC URL）
+# 生产默认 403。本地可设 STAR_WRITE_TOKEN 后带 Bearer。
+curl -X POST localhost:3000/api/seed
 curl -X POST localhost:3000/api/collect -d '{"projectId":"proj-neural"}'
 curl -X POST localhost:3000/api/collect -d '{"provider":"solana-rpc"}'   # → 403（DATA-006）
+curl localhost:3000/api/health                                # liveness（commit/schema/时间，无秘密）
 ```
 
 真实只读冒烟（工程验证用途；冒烟入口仅存在于测试模块图，不在生产构建中）：
@@ -75,10 +79,12 @@ STAR_SMOKE=1 npx vitest run lib/data/rpc-smoke.test.ts
 
 ## 页面
 
-- `/` STAR Desk — 机会队列（仅全 PASS 项目）与风险队列
-- `/narrative-map` Narrative Radar — 叙事速度/广度/链上确认
-- `/project/[id]` Project Audit — 六门禁、证据与评分
-- `/replay-lab` Replay Lab — 任意时点重放（展示时点后被隐藏的证据数）
+- `/` 研究台 — 仅就绪度=可决策的研究队列与风险队列
+- `/cycle-radar` 周期雷达 — 叙事迁移（合成）
+- `/narrative-map` 叙事地图 — 叙事速度/广度/链上确认
+- `/project/[id]` 项目审计 — 六门禁、未知责任链、证据与评分
+- `/risk-center` 风险中心 — 未通过/未知开放风险
+- `/replay-lab` 回放实验室 — 历史冻结 / 重新解释 + 证据哈希溯源
 
 ## 文档
 

@@ -27,4 +27,6 @@ P1                         = NO-GO
 | ERD_CONSTRAINTS.md | 可实施 ERD 与 FK/UNIQUE/CHECK 约束表（D1-A 建表依据） |
 | verify_d0_contract.py | 合同 lint 脚本（python3 docs/p1-data/D0/verify_d0_contract.py，零依赖；**lint 非一致性证明**，人工交叉评审仍然必需） |
 
-边界：不接真实来源（HOLD）、不新增页面、不改六门禁与阈值、不引入钱包/交易/AURORA。
+边界：D0 设计包本身仍是 DESIGN-ONLY。质量审计阶段的「不接真实来源」已被  
+`docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md`（M0）取代：M1 起允许只读接入 Solana 真源。  
+资金、自动交易、钱包仍为 DENIED。

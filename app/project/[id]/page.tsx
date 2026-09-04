@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { shortHash } from '@/lib/data/lineage';
+import { CHECK_ZH, GATE_ZH, INELIGIBLE_ZH, LIFECYCLE_ZH, LINEAGE_ZH, STATUS_ZH, zh, zhReason, zhSource } from '@/lib/ui/zh';
 
 export default function ProjectAudit() {
   const { id } = useParams<{ id: string }>();
@@ -36,7 +38,7 @@ export default function ProjectAudit() {
   };
 
   if (!data) return null;
-  const { project, narrative, token, pools, evidence, gates, score, wallets, entities, edges, decision } = data;
+  const { project, narrative, token, pools, evidence, gates, score, wallets, entities, edges, decision, evaluation, lineage } = data;
 
   const scoreBar = (label: string, value: number) => (
     <div key={label} className="space-y-1">
@@ -58,9 +60,9 @@ export default function ProjectAudit() {
           <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
             <span>{narrative?.name}</span>
             <span>·</span>
-            <Badge variant="secondary">{project.lifecycle}</Badge>
+            <Badge variant="secondary">{zh(LIFECYCLE_ZH, project.lifecycle)}</Badge>
             <span>·</span>
-            <span>readiness {project.decisionReadiness.toFixed(2)}</span>
+            <span>就绪度 {project.decisionReadiness.toFixed(2)}</span>
           </div>
         </div>
         <Button size="sm" onClick={onRefresh} disabled={loading}>{loading ? '刷新中…' : '重新评估'}</Button>
@@ -68,44 +70,51 @@ export default function ProjectAudit() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Hard Gate</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">硬门禁</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {gates.map(g => (
               <div key={g.category} className="flex items-center justify-between">
-                <span className="capitalize text-sm">{g.category}</span>
-                <Badge variant={g.status === 'PASS' ? 'default' : g.status === 'FAIL' ? 'destructive' : 'outline'}>{g.status}</Badge>
+                <span className="text-sm">{zh(GATE_ZH, g.category)}</span>
+                <Badge variant={g.status === 'PASS' ? 'default' : g.status === 'FAIL' ? 'destructive' : 'outline'}>{zh(STATUS_ZH, g.status)}</Badge>
               </div>
             ))}
-            {gates.some(g => g.status === 'FAIL') && (
-              <div className="text-xs text-destructive pt-2">关键失败阻断晋级</div>
-            )}
+            {evaluation.gates.filter((g) => g.status !== 'PASS').map((g) => (
+              <div key={`${g.gate}-gap`} className="text-xs text-muted-foreground pt-1">
+                {zh(GATE_ZH, g.gate)}：{zhReason(g.reason)} · 责任=采集器 · 下次重试=来源恢复后
+              </div>
+            ))}
+            {evaluation.ineligible.map((item) => (
+              <div key={`inel-${item.id}`} className="text-xs text-amber-700 dark:text-amber-400 pt-1">
+                资格冻结 {zh(INELIGIBLE_ZH, item.reason)} · 证据 {item.id} · 不进门禁
+              </div>
+            ))}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Opportunity Score</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">机会分数</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             <div className="text-3xl font-bold">{score ? Math.round(score.total) : '—'}</div>
             {score && (
               <>
-                {scoreBar('Narrative', score.narrative)}
-                {scoreBar('Team/Product', score.teamProduct)}
-                {scoreBar('Capital/Holders', score.capitalHolders)}
-                {scoreBar('Market Structure', score.marketStructure)}
-                {scoreBar('Lifecycle Fit', score.lifecycleFit)}
+                {scoreBar('叙事', score.narrative)}
+                {scoreBar('团队/产品', score.teamProduct)}
+                {scoreBar('资金/持币', score.capitalHolders)}
+                {scoreBar('市场结构', score.marketStructure)}
+                {scoreBar('生命周期拟合', score.lifecycleFit)}
               </>
             )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Identity & Exit</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">身份与退出</CardTitle></CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>Website</span><span className="text-muted-foreground">{project.website || '—'}</span></div>
+            <div className="flex justify-between"><span>网站</span><span className="text-muted-foreground">{project.website || '—'}</span></div>
             <div className="flex justify-between"><span>GitHub</span><span className="text-muted-foreground">{project.github || '—'}</span></div>
-            <div className="flex justify-between"><span>Twitter</span><span className="text-muted-foreground">{project.twitter || '—'}</span></div>
-            <div className="flex justify-between"><span>Mint</span><span className="text-muted-foreground">{token?.mintAuthority || '—'}</span></div>
-            <div className="flex justify-between"><span>Freeze</span><span className="text-muted-foreground">{token?.freezeAuthority || '—'}</span></div>
+            <div className="flex justify-between"><span>推特</span><span className="text-muted-foreground">{project.twitter || '—'}</span></div>
+            <div className="flex justify-between"><span>铸币权限</span><span className="text-muted-foreground">{token?.mintAuthority || '—'}</span></div>
+            <div className="flex justify-between"><span>冻结权限</span><span className="text-muted-foreground">{token?.freezeAuthority || '—'}</span></div>
             {pools.map(p => (
               <div key={p.id} className="flex justify-between">
                 <span>{p.dex} {p.pair}</span>
@@ -118,29 +127,37 @@ export default function ProjectAudit() {
 
       <Tabs defaultValue="evidence">
         <TabsList>
-          <TabsTrigger value="evidence">Evidence Timeline</TabsTrigger>
-          <TabsTrigger value="wallets">Wallet / Entity</TabsTrigger>
-          <TabsTrigger value="decision">Decision</TabsTrigger>
+          <TabsTrigger value="evidence">证据时间线</TabsTrigger>
+          <TabsTrigger value="wallets">钱包 / 实体</TabsTrigger>
+          <TabsTrigger value="decision">决策</TabsTrigger>
         </TabsList>
         <TabsContent value="evidence" className="space-y-4">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>observed_at</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Conclusion</TableHead>
+                <TableHead>观察时间</TableHead>
+                <TableHead>类型</TableHead>
+                <TableHead>来源</TableHead>
+                <TableHead>结论</TableHead>
+                <TableHead>哈希 → 回执</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {evidence.map(e => (
+              {evidence.map(e => {
+                const link = lineage.find((row) => row.evidenceId === e.id);
+                return (
                 <TableRow key={e.id}>
-                  <TableCell>{new Date(e.observedAt).toLocaleDateString()}</TableCell>
-                  <TableCell><Badge variant="outline">{e.type}</Badge></TableCell>
-                  <TableCell>{e.source}</TableCell>
+                  <TableCell>{new Date(e.observedAt).toLocaleDateString('zh-CN')}</TableCell>
+                  <TableCell><Badge variant="outline">{zh(CHECK_ZH, e.type)}</Badge></TableCell>
+                  <TableCell>{zhSource(e.source)}</TableCell>
                   <TableCell>{e.conclusion}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {shortHash(link?.evidenceHash ?? e.hash)}
+                    {link?.receiptId ? ` → ${zh(LINEAGE_ZH, link.status)}` : ` · ${LINEAGE_ZH.UNLINKED}`}
+                  </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </TabsContent>
@@ -149,10 +166,10 @@ export default function ProjectAudit() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Entity</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Confidence</TableHead>
-                <TableHead>Address / Wallet</TableHead>
+                <TableHead>实体</TableHead>
+                <TableHead>类型</TableHead>
+                <TableHead>置信</TableHead>
+                <TableHead>地址 / 钱包</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

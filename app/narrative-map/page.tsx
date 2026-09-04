@@ -6,6 +6,7 @@ import { getNarratives } from '@/lib/queries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { LIFECYCLE_ZH, zh } from '@/lib/ui/zh';
 
 export default function NarrativeMap() {
   const db = useDb();
@@ -27,7 +28,7 @@ export default function NarrativeMap() {
 
   return (
     <main className="p-6 space-y-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold tracking-tight">Narrative Map</h1>
+      <h1 className="text-2xl font-bold tracking-tight">叙事地图</h1>
       <p className="text-sm text-muted-foreground">语义簇、阶段与速度/广度信号</p>
 
       <div className="h-64 bg-card border rounded-lg p-4">
@@ -51,7 +52,7 @@ export default function NarrativeMap() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle>{n.name}</CardTitle>
-                <Badge variant="secondary">{n.stage}</Badge>
+                <Badge variant="secondary">{zh(LIFECYCLE_ZH, n.stage)}</Badge>
               </div>
             </CardHeader>
             <CardContent>
