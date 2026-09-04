@@ -27,6 +27,7 @@ function loadPglite(): typeof import('@electric-sql/pglite').PGlite {
 const DATA_DIR = resolve(process.env.PGLITE_DATA_DIR || './.pglite');
 
 let ready: Promise<any> | null = null;
+let pgliteHandle: unknown = null;
 
 /**
  * Filesystem PGlite store for server routes / tests. Schema is applied from
@@ -36,9 +37,16 @@ let ready: Promise<any> | null = null;
 async function build() {
   const PGlite = loadPglite();
   const pglite = new PGlite(DATA_DIR);
+  pgliteHandle = pglite;
   await pglite.waitReady;
   await ensureCoreAndD1(pglite, (name) => readFile(join(process.cwd(), 'public', name), 'utf8'));
   return drizzle(pglite, { schema });
+}
+
+/** Underlying PGlite handle (same instance as getDb) — for raw SQL probes in tests. */
+export async function getPglite() {
+  await getDb();
+  return pgliteHandle as import('@electric-sql/pglite').PGlite;
 }
 
 export async function getDb() {
