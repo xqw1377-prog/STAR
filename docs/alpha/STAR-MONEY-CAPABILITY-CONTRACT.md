@@ -2,31 +2,30 @@
 
 ```text
 文档：STAR-MONEY-CAPABILITY-CONTRACT
-版本：rev1
+版本：rev0
 日期：2026-09-04
 
 STAR 研究基础设施 = 部分实现
 STAR 赚钱能力     = NO-EVIDENCE
 M0-OBJECTIVE      = FROZEN
-M0-MEASUREMENT    = FROZEN
-M1-BUILD          = IN PROGRESS
-M1-EVIDENCE       = NOT STARTED
-M2-BUILD          = NOT STARTED
+M0-MEASUREMENT    = HOLD / UNSIGNED
+M1 / M2           = NOT STARTED
 M3 / M4           = DENIED
 M5 / M6           = DENIED
 资金权限          = DENIED
 
-已签署：M0 FROZEN rev1
-授权：2026-09-04「继续，下一步」
-依据：docs/alpha/M0.1-ACCEPTANCE-WORKSHEET.md（22 ACCEPT / 0 REWRITE）
+尚未签署：M0 FROZEN rev1
+终审：docs/alpha/M0.1-FINAL-REVIEW.md
+缺口补齐：待签确定值已写入 Part B
+签署状态：仍 HOLD / UNSIGNED，未接受不得升格
 ```
 
 本口径立即覆盖此前任何「能力已经对齐」「门禁/分数/页面/测试通过即具备能力」的宽泛表述。
 
 > 六门禁、分数、页面、单测通过，只证明研究工具可运行，不证明存在 Alpha。
 
-rev1 冻结方向、安全边界、诚实性，以及 Part B 五章的待签确定值（现为冻结值）。  
-赚钱能力仍为 `NO-EVIDENCE`。代码存在 ≠ M1-EVIDENCE / M2 / M3。
+rev0 只冻结**方向、安全边界和诚实性**。  
+rev0 **不能**单独作为赚钱能力判定合同。
 
 ### 后续治理规则（已冻结，不因未签 rev1 而可谈判）
 
@@ -35,11 +34,11 @@ rev1 冻结方向、安全边界、诚实性，以及 Part B 五章的待签确�
 3. 查看测试集后修改规则，必须创建新的实验版本。
 4. PF、胜率和收益率必须同时报告样本量、置信区间、最大回撤及费用后结果。
 5. 六门禁、分数、页面、单测通过，只证明研究工具可运行，不证明存在 Alpha。
-6. M0 rev1 已签署：允许 M1 Recorder。仍禁止回测器、策略优化器、排行榜，直到 M1-EVIDENCE 完成。
+6. M0 rev1 未签署前，不开发 M1 Recorder、回测器或策略优化器。
 7. M3 / M4 未满足证据门槛前，不讨论 Micro-Live。
 
-回测器、策略优化器、排行榜在 M1-EVIDENCE 完成前禁止。  
-改写任一条冻结值必须创建新实验版本，不得回改 rev1 冒充历史成绩。
+M0-MEASUREMENT 签署前，禁止继续开发回测器、策略优化器或排行榜，否则会围绕未冻结指标过拟合。  
+若价格、失败样本、账户或实验口径仍有任何未定义项，继续保持 `HOLD / UNSIGNED`。
 
 适用范围：`star-web` 唯一运行应用。  
 取代：质量审计阶段「不接 solana-rpc」限制（该限制只约束当时的页面审计）。  
@@ -119,10 +118,11 @@ append-only
 
 ---
 
-# Part B · M0.1 测量合同（FROZEN · rev1）
+# Part B · M0.1 测量合同（HOLD / UNSIGNED）
 
-以下五章是赚钱判定的最小完备集。未完成正式 M3 前，任何回测数字只能标 `UNOFFICIAL`。  
-2026-09-04 签署：P-01–S-05 由「待签确定值」升为**冻结值**。改写任何一条即生成新策略/宇宙/执行/实验版本，不得回改本 rev1。
+以下五章是赚钱判定的最小完备集。未签署前，任何回测数字只能标 `UNOFFICIAL`。  
+2026-09-04 终审后已补齐 P-01–S-05 的**待签确定值**（见各章「待签确定值」节与 `M0.1-FINAL-REVIEW.md`）。  
+这些值尚未被接受，**不得升为 `M0 FROZEN rev1`**。改写任何一条即生成新的待签稿，不能假装旧稿已被签署。
 
 ---
 
@@ -468,7 +468,6 @@ experiment_run
 ├── dataset_hash
 ├── split_bounds
 ├── created_at
-├── sealed_viewed_at       未查看 = null；查看后不可擦除（X-02）
 └── result_status          UNOFFICIAL | M3-CANDIDATE | SEALED | SUPERSEDED
 ```
 
@@ -616,10 +615,8 @@ Oracle 不得回读「引擎现在认为该怎么判」。
 
 ```text
 M0-OBJECTIVE                 FROZEN
-M0-MEASUREMENT               FROZEN        rev1
-M1-BUILD                     IN PROGRESS   只记事实；无信号 / 无优化 / 无钱包
-M1-EVIDENCE                  NOT STARTED
-M2-BUILD                     NOT STARTED
+M0-MEASUREMENT               HOLD / UNSIGNED
+M1 / M2                      NOT STARTED   未签 rev1 不得开工
 M3 / M4                      DENIED
 M5 / M6                      DENIED
 资金权限                     DENIED
@@ -700,8 +697,8 @@ STAR Alpha Report v0
 
 | 阶段 | 内容 | 出口 |
 | --- | --- | --- |
-| 现在 | 已签 rev1；建设 Recorder | `M1-BUILD`（≠ M1-EVIDENCE） |
-| 建设 | 真源连续记录代码 | `M1-BUILD` |
+| 现在 | 终审 M0.1 五章；补齐未定义口径后才可签 rev1 | 仍为 `HOLD / UNSIGNED` |
+| 建设 | 仅在签署后启动 Recorder | `M1-BUILD` |
 | 记录 | 连续记录 ≥ 7 天 | 进入 M1-EVIDENCE |
 | 复验 | 覆盖率、延迟、回执重放、失败不丢弃 | `M1-EVIDENCE` |
 | Oracle | 独立执行结果计算 + 金标 | `M2-BUILD` → `M2-EVIDENCE` |
