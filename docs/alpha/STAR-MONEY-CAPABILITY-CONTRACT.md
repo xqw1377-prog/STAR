@@ -2,17 +2,18 @@
 
 ```text
 文档：STAR-MONEY-CAPABILITY-CONTRACT
-版本：rev0
-日期：2026-09-04
+版本：rev1（测量）/ rev2（边界）
+日期：2026-09-04 起草 · 2026-09-05 签发
 
 STAR 研究基础设施 = 部分实现
 STAR 赚钱能力     = NO-EVIDENCE
 M0-OBJECTIVE      = FROZEN
-M0-MEASUREMENT    = HOLD / UNSIGNED
-M1 / M2           = NOT STARTED
+M0-MEASUREMENT    = FROZEN rev1（2026-09-05，委托人指令签发）
+M0-BOUNDARY       = rev2（2026-09-05，同指令）
+M1 / M2           = OPEN（M1 Recorder 先行，只记事实）
 M3 / M4           = DENIED
-M5 / M6           = DENIED
-资金权限          = DENIED
+M5-BUILD          = AUTHORIZED（M5-EVIDENCE = DENIED）
+M6 / 资金扩容      = DENIED · 资金权限 = MICRO-LIVE-CANDIDATE（≤1,000 USDC，0 杠杆）
 
 尚未签署：M0 FROZEN rev1
 终审：docs/alpha/M0.1-FINAL-REVIEW.md
@@ -35,7 +36,8 @@ rev0 **不能**单独作为赚钱能力判定合同。
 4. PF、胜率和收益率必须同时报告样本量、置信区间、最大回撤及费用后结果。
 5. 六门禁、分数、页面、单测通过，只证明研究工具可运行，不证明存在 Alpha。
 6. M0 rev1 未签署前，不开发 M1 Recorder、回测器或策略优化器。
-7. M3 / M4 未满足证据门槛前，不讨论 Micro-Live。
+7. （rev2 生效）允许 M5-BUILD（默认 DRY_RUN；BROADCAST 需 STAR_MICRO_LIVE=1 且钱包已配置）；
+   M5-EVIDENCE、M6 扩容、把实盘盈亏计入正式成绩，仍须正式 M3 + M4。
 
 M0-MEASUREMENT 签署前，禁止继续开发回测器、策略优化器或排行榜，否则会围绕未冻结指标过拟合。  
 若价格、失败样本、账户或实验口径仍有任何未定义项，继续保持 `HOLD / UNSIGNED`。
