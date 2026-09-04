@@ -49,9 +49,10 @@ export function latestByKey<T>(
   ingestedAt: (row: T) => string,
   id: (row: T) => string,
   key: (row: T) => string,
+  effectiveAt?: (row: T) => string,
 ): Map<string, T> {
   const available = rows
-    .filter((row) => observedAt(row) <= cutoff)
+    .filter((row) => observedAt(row) <= cutoff && (!effectiveAt || effectiveAt(row) <= cutoff))
     .sort((a, b) => {
       const byObserved = observedAt(b).localeCompare(observedAt(a));
       return byObserved || ingestedAt(b).localeCompare(ingestedAt(a)) || id(b).localeCompare(id(a));
@@ -65,7 +66,7 @@ export function latestByKey<T>(
 }
 
 export function evidenceAvailableAt(item: Evidence, cutoff: string) {
-  return item.observedAt <= cutoff;
+  return item.observedAt <= cutoff && item.effectiveAt <= cutoff;
 }
 
 export function evidenceAtCutoff(evidence: Evidence[], cutoff: string) {
@@ -85,5 +86,6 @@ export function latestEvidenceByCheck(evidence: Evidence[], cutoff: string) {
     (row) => row.ingestedAt,
     (row) => row.id,
     (row) => row.checkKey,
+    (row) => row.effectiveAt,
   ) as Map<CheckKey, Evidence>;
 }

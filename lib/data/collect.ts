@@ -5,12 +5,12 @@
  * ingestedAt = collector wall clock), refreshes denormalized cache and
  * re-runs the six gates. No wallet, no transaction, no state change on-chain.
  */
-import { createHash } from 'crypto';
 import { eq } from 'drizzle-orm';
 import type { StarDb } from '@/lib/db';
 import * as s from '@/db/schema';
 import { assertFact, type ChainFact, type ReadonlyChainProvider } from './contract';
 import { refreshProject } from '@/lib/engine';
+import { completeFailure, completeSuccess, ensurePlanItem, startAttempt } from './ledger';
 
 export interface FactReport {
   kind: string;
@@ -26,10 +26,6 @@ export interface CollectReport {
   facts: FactReport[];
   gates: { gate: string; status: string; reason: string }[];
   score: { total: number } | null;
-}
-
-function sha256(input: string): string {
-  return createHash('sha256').update(input).digest('hex');
 }
 
 /** Upsert the tokens/pools display cache from freshly collected facts. */
@@ -79,49 +75,56 @@ export async function collectProject(db: StarDb, projectId: string, provider: Re
     { kind: 'program-verification', run: () => provider.programVerification(mint, project.programId) },
   ];
 
-  const ingestedAt = new Date();
   const facts: ChainFact[] = [];
   const reports: FactReport[] = [];
   for (const { kind, run } of attempts) {
+    const planItemId = await ensurePlanItem(db, {
+      sourceId: provider.id,
+      methodId: kind,
+      projectId,
+      factKind: kind,
+    });
+    const started = await startAttempt(db, {
+      projectId,
+      factKind: kind,
+      sourceId: provider.id,
+      methodId: kind,
+      planItemId,
+      requestParams: { projectId, factKind: kind },
+    });
     try {
       const fact = assertFact(await run());
       facts.push(fact);
-      await db.insert(s.evidence).values({
+      const extra = fact.kind === 'mint-authority'
+        ? [{
+            kind: 'freeze-authority',
+            payload: fact.payload,
+            conclusion: `freeze-authority @ slot ${fact.slot ?? 'n/a'} (${fact.source})`,
+          }]
+        : [];
+      if (extra.length) {
+        await ensurePlanItem(db, {
+          sourceId: provider.id,
+          methodId: 'freeze-authority',
+          projectId,
+          factKind: 'freeze-authority',
+        });
+      }
+      await completeSuccess(db, {
+        attemptId: started.attemptId,
+        observationKey: started.observationKey,
         projectId,
-        type: fact.kind,
-        observedAt: new Date(fact.observedAt),
-        effectiveAt: new Date(fact.observedAt),
-        ingestedAt,
-        source: fact.source,
-        sourceUrl: fact.sourceUrl ?? '',
-        hash: sha256(JSON.stringify(fact.payload)),
-        payload: fact.payload as any,
-        conclusion: `${fact.kind} @ slot ${fact.slot ?? 'n/a'} (${fact.source})`,
-        conflictWith: null,
+        fact,
+        extraFacts: extra,
       });
       reports.push({ kind, ok: true, observedAt: fact.observedAt, source: fact.source, detail: 'ingested' });
+      if (extra.length) {
+        reports.push({ kind: 'freeze-authority', ok: true, observedAt: fact.observedAt, source: fact.source, detail: 'ingested (mint decode)' });
+      }
     } catch (e: unknown) {
-      reports.push({ kind, ok: false, observedAt: ingestedAt.toISOString(), source: provider.id, detail: e instanceof Error ? e.message : String(e) });
+      await completeFailure(db, { attemptId: started.attemptId, error: e });
+      reports.push({ kind, ok: false, observedAt: new Date().toISOString(), source: provider.id, detail: e instanceof Error ? e.message : String(e) });
     }
-  }
-
-  // freeze-authority comes from the same mint decode as mint-authority
-  const mintFact = facts.find((f) => f.kind === 'mint-authority');
-  if (mintFact) {
-    await db.insert(s.evidence).values({
-      projectId,
-      type: 'freeze-authority',
-      observedAt: new Date(mintFact.observedAt),
-      effectiveAt: new Date(mintFact.observedAt),
-      ingestedAt,
-      source: mintFact.source,
-      sourceUrl: mintFact.sourceUrl ?? '',
-      hash: sha256(JSON.stringify({ freeze: mintFact.payload })),
-      payload: mintFact.payload as any,
-      conclusion: `freeze-authority @ slot ${mintFact.slot ?? 'n/a'} (${mintFact.source})`,
-      conflictWith: null,
-    });
-    reports.push({ kind: 'freeze-authority', ok: true, observedAt: mintFact.observedAt, source: mintFact.source, detail: 'ingested (mint decode)' });
   }
 
   await updateCache(db, projectId, facts);

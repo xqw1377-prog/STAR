@@ -87,9 +87,9 @@ export function parseProgramAccounts(
     immutable: false,
     verifiedBuild: null,
   };
-  if (!programAcct) return base;
+  if (!programAcct) return { ...base, accountParsed: false };
   const progBytes = Buffer.from(programAcct.data[0], 'base64');
-  if (progBytes.length < 36) return { ...base, immutable: true };
+  if (progBytes.length < 36) return { ...base, accountParsed: false, immutable: false };
   let authority: string | null = null;
   let immutable = false;
   if (programDataAcct) {
@@ -100,7 +100,7 @@ export function parseProgramAccounts(
       else if (pd.length >= 48) authority = b58encode(pd.subarray(16, 48));
     }
   }
-  return { ...base, upgradeAuthority: authority, immutable };
+  return { ...base, upgradeAuthority: authority, immutable, accountParsed: true };
 }
 
 /** DexScreener /latest/dex/tokens/{mint} response. LP burn is not provable from this source → null. */
@@ -144,7 +144,18 @@ export function parseJupiterQuote(
     };
   }
   const impact = quote.priceImpactPct != null ? Number(quote.priceImpactPct) : null;
-  const executable = impact == null || impact <= SELL_MAX_PRICE_IMPACT_PCT;
+  if (impact == null || Number.isNaN(impact)) {
+    return {
+      executable: false,
+      method: 'jupiter-quote',
+      inputAmount,
+      outAmount: String(quote.outAmount),
+      priceImpactPct: null,
+      buy: null,
+      detail: 'Route exists but priceImpactPct missing — cannot prove executable',
+    };
+  }
+  const executable = impact <= SELL_MAX_PRICE_IMPACT_PCT;
   return {
     executable,
     method: 'jupiter-quote',
@@ -153,8 +164,8 @@ export function parseJupiterQuote(
     priceImpactPct: impact,
     buy: null,
     detail: executable
-      ? `Route exists, out ${quote.outAmount}, impact ${impact ?? 'n/a'}`
-      : `Route exists but price impact ${(impact! * 100).toFixed(2)}% exceeds ${(SELL_MAX_PRICE_IMPACT_PCT * 100).toFixed(0)}%`,
+      ? `Route exists, out ${quote.outAmount}, impact ${impact}`
+      : `Route exists but price impact ${(impact * 100).toFixed(2)}% exceeds ${(SELL_MAX_PRICE_IMPACT_PCT * 100).toFixed(0)}%`,
   };
 }
 
@@ -162,8 +173,11 @@ export function parseJupiterQuote(
 export function parseBuyQuote(quote: any): { executable: boolean; outAmount: string | null; priceImpactPct: number | null } | null {
   if (!quote || !quote.outAmount) return null;
   const impact = quote.priceImpactPct != null ? Number(quote.priceImpactPct) : null;
+  if (impact == null || Number.isNaN(impact)) {
+    return { executable: false, outAmount: String(quote.outAmount), priceImpactPct: null };
+  }
   return {
-    executable: impact == null || impact <= SELL_MAX_PRICE_IMPACT_PCT,
+    executable: impact <= SELL_MAX_PRICE_IMPACT_PCT,
     outAmount: String(quote.outAmount),
     priceImpactPct: impact,
   };

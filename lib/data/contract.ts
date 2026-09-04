@@ -12,7 +12,7 @@
  */
 
 /** Unique observation contract (D2). Gate interpretation is `star-web/lib/domain`. */
-export const CONTRACT_VERSION = 'solana-readonly@2' as const;
+export const CONTRACT_VERSION = 'solana-readonly@3' as const;
 
 export const FACT_KINDS = [
   'mint-authority',
@@ -99,6 +99,8 @@ export interface RelatedWalletsPayload {
   clusterPct: number;
   wallets: { address: string; label: string; entity: string; pctOfSupply: number }[];
   attributionConfidence: number;
+  /** False/absent = WALLET_GRAPH_MISSING. Fixture graphs set true. */
+  graphIngested: boolean;
 }
 
 /** Program upgrade authority state and (optionally) verified-build status. */
@@ -108,6 +110,8 @@ export interface ProgramVerificationPayload {
   upgradeAuthority: string | null;
   immutable: boolean;
   verifiedBuild: boolean | null;
+  /** False when the account bytes are too short or unreadable. */
+  accountParsed?: boolean;
 }
 
 export type FactPayload = {
@@ -155,7 +159,24 @@ export function assertFact<K extends FactKind>(fact: ChainFact<K>): ChainFact<K>
   if (fact.chainId !== 'solana') fail(`chainId must be 'solana', got ${fact.chainId}`);
   if (!PUBKEY_RE.test(fact.mint)) fail(`mint not a pubkey: ${fact.mint}`);
   if (!fact.payload || typeof fact.payload !== 'object') fail('payload missing');
+  assertPayload(fact.kind, fact.payload as unknown as Record<string, unknown>, fail);
   return fact;
+}
+
+function assertPayload(kind: FactKind, payload: Record<string, unknown>, fail: (why: string) => never): void {
+  if (kind === 'sell-simulation') {
+    if (typeof payload.executable !== 'boolean') fail('sell.executable required');
+  }
+  if (kind === 'related-wallets') {
+    if (typeof payload.graphIngested !== 'boolean') fail('related-wallets.graphIngested required');
+    if (typeof payload.clusterPct !== 'number') fail('related-wallets.clusterPct required');
+  }
+  if (kind === 'program-verification') {
+    if (typeof payload.programId !== 'string') fail('programId required');
+  }
+  if (kind === 'holder-distribution') {
+    if (typeof payload.top10Pct !== 'number') fail('top10Pct required');
+  }
 }
 
 /**

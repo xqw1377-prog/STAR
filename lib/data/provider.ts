@@ -31,7 +31,7 @@ export function providerStatus() {
     kind: providerKind(),
     contractVersion: CONTRACT_VERSION,
     registry: SOURCE_REGISTRY,
-    rpcUrl: process.env.STAR_RPC_URL || 'https://api.mainnet-beta.solana.com',
+    rpcConfigured: Boolean(process.env.STAR_RPC_URL),
     readOnly: true,
     wallet: false,
     trading: false,

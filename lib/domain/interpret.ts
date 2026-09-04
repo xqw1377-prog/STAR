@@ -6,6 +6,10 @@ export interface InterpretResult {
   claim: string;
 }
 
+export interface InterpretContext {
+  asOf?: Date;
+}
+
 function asRecord(payload: unknown): Record<string, unknown> {
   return payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
 }
@@ -35,27 +39,62 @@ function interpretToken(p: Record<string, unknown>, focus: 'mint' | 'freeze'): I
   };
 }
 
-function interpretSell(p: Record<string, unknown>): InterpretResult {
-  if (p.executable === false) return { status: 'FAIL', claim: String(p.detail ?? 'Sell path not executable') };
-  const buy = p.buy as { executable?: boolean } | null | undefined;
-  if (!buy) return { status: 'UNKNOWN', claim: 'Buy path unproven' };
-  if (buy.executable === false) return { status: 'FAIL', claim: 'Buy path not executable' };
-  return { status: 'PASS', claim: 'Buy and sell paths executable' };
+function impactMissing(impact: unknown): boolean {
+  return impact == null || (typeof impact === 'number' && Number.isNaN(impact));
 }
 
-function interpretLiquidity(p: Record<string, unknown>): InterpretResult {
+function interpretSell(p: Record<string, unknown>): InterpretResult {
+  if (p.executable === false) return { status: 'FAIL', claim: String(p.detail ?? 'Sell path not executable') };
+  if (impactMissing(p.priceImpactPct)) {
+    return { status: 'UNKNOWN', claim: 'Sell priceImpactPct not observed' };
+  }
+  const buy = p.buy as { executable?: boolean; priceImpactPct?: number | null } | null | undefined;
+  if (!buy) return { status: 'UNKNOWN', claim: 'Buy path unproven' };
+  if (impactMissing(buy.priceImpactPct)) return { status: 'UNKNOWN', claim: 'Buy priceImpactPct not observed' };
+  if (buy.executable === false) return { status: 'FAIL', claim: 'Buy path not executable' };
+  return { status: 'PASS', claim: 'Buy and sell paths executable with observed impact' };
+}
+
+function lockStillActive(pool: Record<string, unknown>, asOf: Date): boolean {
+  const burned = typeof pool.lpBurnedPct === 'number' && pool.lpBurnedPct >= THRESHOLDS.LP_BURN_MIN_PCT;
+  if (burned) return true;
+  if (typeof pool.lockedUntil !== 'string' || !pool.lockedUntil) return false;
+  const until = Date.parse(pool.lockedUntil);
+  if (!Number.isFinite(until)) return false;
+  return until > asOf.getTime();
+}
+
+function interpretLiquidity(p: Record<string, unknown>, asOf: Date): InterpretResult {
   const tvl = typeof p.tvlUsdTotal === 'number' ? p.tvlUsdTotal : null;
   if (tvl == null) return { status: 'UNKNOWN', claim: 'TVL not observed' };
   if (tvl < THRESHOLDS.LIQUIDITY_MIN_TVL_USD) return { status: 'FAIL', claim: `TVL too low: $${tvl}` };
   const pools = Array.isArray(p.pools) ? (p.pools as Record<string, unknown>[]) : [];
-  const locked = pools.some((pool) => {
-    const burned = typeof pool.lpBurnedPct === 'number' && pool.lpBurnedPct >= THRESHOLDS.LP_BURN_MIN_PCT;
-    return burned || Boolean(pool.lockedUntil);
-  });
-  if (!locked) return { status: 'UNKNOWN', claim: `TVL $${tvl}; LP lock/burn not proven` };
+  if (!pools.length) return { status: 'UNKNOWN', claim: `TVL $${tvl}; no pool attribution` };
+
+  let lockedTvl = 0;
+  let sawLockAttempt = false;
+  for (const pool of pools) {
+    const poolTvl = typeof pool.tvlUsd === 'number'
+      ? pool.tvlUsd
+      : pools.length === 1
+        ? tvl
+        : 0;
+    const locked = lockStillActive(pool, asOf);
+    if (typeof pool.lockedUntil === 'string' || typeof pool.lpBurnedPct === 'number') sawLockAttempt = true;
+    if (locked) lockedTvl += poolTvl;
+  }
+  if (lockedTvl < THRESHOLDS.LIQUIDITY_MIN_TVL_USD) {
+    if (!sawLockAttempt || lockedTvl === 0) {
+      return { status: 'UNKNOWN', claim: `TVL $${tvl}; LP lock/burn not proven on qualifying pools` };
+    }
+    return { status: 'FAIL', claim: `Locked/burned TVL $${lockedTvl} cannot endorse aggregate TVL $${tvl}` };
+  }
   const depth = typeof p.exitDepthUsd === 'number' ? p.exitDepthUsd : null;
-  if (depth == null || depth <= 0) return { status: 'UNKNOWN', claim: 'Exit depth not observed' };
-  return { status: 'PASS', claim: `TVL $${tvl}; LP locked/burned; exit depth $${depth}` };
+  if (depth == null) return { status: 'UNKNOWN', claim: 'Exit depth not observed' };
+  if (depth < THRESHOLDS.EXIT_DEPTH_MIN_USD) {
+    return { status: 'FAIL', claim: `Exit depth $${depth} below research size $${THRESHOLDS.EXIT_DEPTH_MIN_USD}` };
+  }
+  return { status: 'PASS', claim: `Qualified locked TVL $${lockedTvl}; exit depth $${depth}` };
 }
 
 function interpretHolders(p: Record<string, unknown>): InterpretResult {
@@ -70,23 +109,34 @@ function interpretHolders(p: Record<string, unknown>): InterpretResult {
 }
 
 function interpretRelated(p: Record<string, unknown>): InterpretResult {
+  if (p.graphIngested !== true) {
+    return { status: 'UNKNOWN', claim: 'WALLET_GRAPH_MISSING: clusterPct without ingested graph cannot PASS' };
+  }
   if (typeof p.clusterPct !== 'number') return { status: 'UNKNOWN', claim: 'Related-wallet cluster not observed' };
   if (p.clusterPct > THRESHOLDS.RELATED_CLUSTER_MAX_PCT) {
     return { status: 'FAIL', claim: `Related cluster ${(p.clusterPct * 100).toFixed(0)}% exceeds ${THRESHOLDS.RELATED_CLUSTER_MAX_PCT * 100}%` };
   }
-  return { status: 'PASS', claim: `Related cluster ${(p.clusterPct * 100).toFixed(0)}% within threshold` };
+  return { status: 'PASS', claim: `Related cluster ${(p.clusterPct * 100).toFixed(0)}% within threshold; graph ingested` };
 }
 
 function interpretProgram(p: Record<string, unknown>): InterpretResult {
-  if (p.verifiedBuild === true) return { status: 'PASS', claim: 'Verified build present' };
-  if (p.immutable === true) return { status: 'PASS', claim: 'Program immutable' };
+  if (p.accountParsed === false) {
+    return { status: 'UNKNOWN', claim: 'Program account malformed or too short to parse' };
+  }
+  if (p.verifiedBuild === true && p.owner) {
+    return { status: 'PASS', claim: 'Verified build with proven owner' };
+  }
+  if (p.immutable === true && p.verifiedBuild !== true) {
+    return { status: 'UNKNOWN', claim: 'Immutable flag without verified build/owner proof cannot PASS' };
+  }
   if (p.upgradeAuthority) return { status: 'FAIL', claim: `Upgradeable without verified build: ${p.upgradeAuthority}` };
   return { status: 'UNKNOWN', claim: 'Program state not provable' };
 }
 
 /** Canonical payload → gate status. UI must not reimplement these rules. */
-export function interpretCheck(kind: string, payload: unknown): InterpretResult {
+export function interpretCheck(kind: string, payload: unknown, ctx: InterpretContext = {}): InterpretResult {
   const p = asRecord(payload);
+  const asOf = ctx.asOf ?? new Date();
   switch (kind) {
     case 'mint-authority':
     case 'token-authority':
@@ -96,7 +146,7 @@ export function interpretCheck(kind: string, payload: unknown): InterpretResult 
     case 'sell-simulation':
       return interpretSell(p);
     case 'liquidity':
-      return interpretLiquidity(p);
+      return interpretLiquidity(p, asOf);
     case 'holder-distribution':
       return interpretHolders(p);
     case 'related-wallets':

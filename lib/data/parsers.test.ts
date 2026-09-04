@@ -81,10 +81,11 @@ describe('parseProgramAccounts', () => {
     expect(payload.immutable).toBe(false);
     expect(payload.upgradeAuthority).toBe(authority);
   });
-  it('treats a non-upgradeable short account as immutable', () => {
+  it('refuses to call a short/malformed account immutable', () => {
     const short = { data: [Buffer.from([1, 2, 3]).toString('base64'), 'base64'] as [string, string] };
     const payload = parseProgramAccounts('ProgId111111111111111111111111111111111', short, null);
-    expect(payload.immutable).toBe(true);
+    expect(payload.accountParsed).toBe(false);
+    expect(payload.immutable).toBe(false);
   });
 });
 

@@ -1,5 +1,6 @@
 /**
- * I/O adapter only. Interpretation and aggregation live in lib/domain.
+ * I/O + scoring + readiness + persistence orchestration.
+ * Gate interpretation and temporal filtering live in lib/domain.
  */
 import { eq } from 'drizzle-orm';
 import * as s from '@/db/schema';
@@ -21,6 +22,7 @@ import {
   type GateStatus,
 } from '@/lib/domain/types';
 import { RULE_VERSION } from '@/lib/domain/thresholds';
+import { resolveLifecycleAt, resolveNarrativeAt } from '@/lib/domain/research';
 import type {
   HolderDistributionPayload,
   LiquidityPayload,
@@ -58,9 +60,37 @@ export interface ProjectEvaluation {
   blockedBy: string[];
   evidenceUsed: Evidence[];
   quarantined: { id: string; reason: string }[];
+  ineligible: { id: string; reason: string }[];
 }
 
-type Row = typeof s.evidence.$inferSelect;
+type Row = {
+  id: string | number;
+  type: string;
+  observedAt: Date;
+  effectiveAt: Date;
+  ingestedAt: Date;
+  source: string;
+  payload: unknown;
+  conclusion: string | null;
+};
+
+export type EvaluateFactsInput = {
+  projectId: string;
+  asOf: Date;
+  lifecycle: string;
+  discoveredAt: Date;
+  narrative?: {
+    novelty: number;
+    velocity: number;
+    breadth: number;
+    onChainConfirm: number;
+    survival: number;
+    updatedAt: Date;
+  } | null;
+  rows: Row[];
+  ineligible?: Array<{ id: string; reason: string }>;
+  ignoreCache?: boolean;
+};
 
 function toKernelEvidence(r: Row): Evidence {
   return {
@@ -82,35 +112,36 @@ function violatesInvariant(r: Row): string | null {
 
 const UNKNOWN = (key: CheckKey): GateCheck => ({ key, status: 'UNKNOWN' });
 
-function checkFromEvidence(key: CheckKey, ev: Evidence | undefined, payload: unknown): GateCheck {
-  const interpreted = interpretCheck(key, payload);
+function checkFromEvidence(key: CheckKey, ev: Evidence | undefined, payload: unknown, asOf: Date): GateCheck {
+  const interpreted = interpretCheck(key, payload, { asOf });
   return { key, status: interpreted.status, evidence: ev };
 }
 
 /** Payloads ride alongside kernel evidence in the same DB row. */
-function checkFor(key: CheckKey, latest: Map<CheckKey, Evidence>, payloads: Map<string, unknown>): GateCheck {
+function checkFor(key: CheckKey, latest: Map<CheckKey, Evidence>, payloads: Map<string, unknown>, asOf: Date): GateCheck {
   const ev = latest.get(key);
   if (!ev) return UNKNOWN(key);
-  return checkFromEvidence(key, ev, payloads.get(ev.id));
+  return checkFromEvidence(key, ev, payloads.get(ev.id), asOf);
 }
 
-export async function evaluateProjectAsOf(db: StarDb, projectId: string, asOf: Date): Promise<ProjectEvaluation> {
-  const [project] = await db.select().from(s.projects).where(eq(s.projects.id, projectId));
-  if (!project) throw new Error(`unknown project ${projectId}`);
-  const [narrative] = project.narrativeId
-    ? await db.select().from(s.narratives).where(eq(s.narratives.id, project.narrativeId))
-    : [undefined];
-
-  const rows = await db.select().from(s.evidence).where(eq(s.evidence.projectId, projectId));
+export function evaluateFactsAsOf(input: EvaluateFactsInput): ProjectEvaluation {
+  const { projectId, asOf } = input;
+  const narrative = input.narrative ?? undefined;
+  const rows = input.rows;
+  const researchRows = rows.filter((r) => r.type === 'narrative-snapshot' || r.type === 'lifecycle-transition');
+  const gateRows = rows.filter((r) => r.type !== 'narrative-snapshot' && r.type !== 'lifecycle-transition');
   const quarantined: { id: string; reason: string }[] = [];
+  const ineligible = [...(input.ineligible ?? [])];
+  const ineligibleIds = new Set(ineligible.map((x) => x.id));
   const kernel: Evidence[] = [];
   const payloads = new Map<string, unknown>();
-  for (const r of rows) {
+  for (const r of gateRows) {
     const violation = violatesInvariant(r);
     if (violation) {
       quarantined.push({ id: String(r.id), reason: violation });
       continue;
     }
+    if (ineligibleIds.has(String(r.id))) continue;
     const ev = toKernelEvidence(r);
     payloads.set(ev.id, r.payload);
     kernel.push(ev);
@@ -121,7 +152,7 @@ export async function evaluateProjectAsOf(db: StarDb, projectId: string, asOf: D
   const evidenceUsed = [...latest.values()];
 
   const observations: CheckObservation[] = kernel.map((ev) => {
-    const computed = checkFromEvidence(ev.checkKey, ev, payloads.get(ev.id));
+    const computed = checkFromEvidence(ev.checkKey, ev, payloads.get(ev.id), asOf);
     return {
       id: ev.id,
       project_id: projectId,
@@ -140,7 +171,7 @@ export async function evaluateProjectAsOf(db: StarDb, projectId: string, asOf: D
   const kernelByGate = new Map(kernelEval.results.map((r) => [r.check_key, r]));
 
   const gates: GateGroupResult[] = gateKeys.map((gate) => {
-    const checks = GATE_CHECKS[gate].map((key) => checkFor(key, latest, payloads));
+    const checks = GATE_CHECKS[gate].map((key) => checkFor(key, latest, payloads, asOf));
     const fromKernel = kernelByGate.get(gate);
     const status: GateStatus = fromKernel?.status ?? 'UNKNOWN';
     const completeness = checks.filter((c) => c.status !== 'UNKNOWN').length / checks.length;
@@ -161,36 +192,92 @@ export async function evaluateProjectAsOf(db: StarDb, projectId: string, asOf: D
     const clusterPct = (payloads.get(related.id) as RelatedWalletsPayload).clusterPct;
     const tvl = (payloads.get(liq.id) as LiquidityPayload).tvlUsdTotal!;
     const progPayload = payloads.get(prog.id) as ProgramVerificationPayload;
-    const narrativeScore = narrative
-      ? ((narrative.novelty + narrative.velocity + narrative.breadth + narrative.onChainConfirm + narrative.survival) / 5) * 100
+    const narr = resolveNarrativeAt(researchRows, asOf);
+    const life = resolveLifecycleAt(researchRows, asOf);
+    const hasNarrFacts = researchRows.some((r) => r.type === 'narrative-snapshot' && r.observedAt <= asOf && r.effectiveAt <= asOf);
+    const hasLifeFacts = researchRows.some((r) => r.type === 'lifecycle-transition' && r.observedAt <= asOf && r.effectiveAt <= asOf);
+    const narrativeAt = narr.contested
+      ? null
+      : narr.payload
+        ? narr.payload
+        : !input.ignoreCache && !hasNarrFacts && narrative && narrative.updatedAt <= asOf
+          ? narrative
+          : null;
+    const lifecycleAt = life.contested
+      ? 'UNKNOWN'
+      : hasLifeFacts
+        ? life.stage
+        : !input.ignoreCache && input.discoveredAt <= asOf
+          ? input.lifecycle
+          : 'UNKNOWN';
+    const narrativeScore = narrativeAt
+      ? ((narrativeAt.novelty + narrativeAt.velocity + narrativeAt.breadth + narrativeAt.onChainConfirm + narrativeAt.survival) / 5) * 100
       : 50;
     const parts = {
       narrative: narrativeScore,
       teamProduct: progPayload.verifiedBuild ? 80 : 60,
       capitalHolders: Math.max(0, Math.min(100, Math.round(100 - 120 * Math.max(holdersPct, clusterPct)))),
       marketStructure: Math.max(0, Math.min(90, Math.round((tvl / 1_000_000) * 40 + 40))),
-      lifecycleFit: lifecycleScore(project.lifecycle),
+      lifecycleFit: lifecycleScore(lifecycleAt),
     };
     const total = Object.entries(WEIGHTS).reduce((acc, [k, w]) => acc + parts[k as keyof typeof parts] * w, 0);
     const newestObserved = Math.max(...evidenceUsed.map((e) => new Date(e.observedAt).getTime()));
     const freshness = Math.max(0, 1 - (asOf.getTime() - newestObserved) / 86400000 / 7);
+    const sources = new Set(evidenceUsed.map((e) => e.source));
+    const confidence = Number(Math.min(1, 0.35 + 0.25 * freshness + 0.2 * Math.min(sources.size, 3) / 3 + 0.2).toFixed(2));
     score = {
       ...parts,
       total: Number(total.toFixed(1)),
-      confidence: Number((0.6 + 0.4 * freshness).toFixed(2)),
+      confidence,
       freshness: Number(freshness.toFixed(2)),
     };
   }
 
+  const life = resolveLifecycleAt(researchRows, asOf);
+  const hasLifeFacts = researchRows.some((r) => r.type === 'lifecycle-transition' && r.observedAt <= asOf && r.effectiveAt <= asOf);
+  const lifecycleAt = life.contested
+    ? 'UNKNOWN'
+    : hasLifeFacts
+      ? life.stage
+      : !input.ignoreCache && input.discoveredAt <= asOf
+        ? input.lifecycle
+        : 'UNKNOWN';
+  const evidenceCompleteness = gates.reduce((acc, g) => acc + g.completeness, 0) / Math.max(gates.length, 1);
   const readiness: Readiness = gates.some((g) => g.status === 'FAIL')
     ? 'BLOCKED'
-    : gates.some((g) => g.status === 'UNKNOWN')
+    : gates.some((g) => g.status === 'UNKNOWN') || evidenceCompleteness < 1
       ? 'RESEARCH_REQUIRED'
-      : ['CROWDING', 'DISTRIBUTION', 'DEAD'].includes(project.lifecycle)
+      : ['CROWDING', 'DISTRIBUTION', 'DEAD'].includes(lifecycleAt)
         ? 'TOO_LATE'
         : 'READY';
 
-  return { projectId, asOf: cutoff, gates, allPass, score, readiness, blockedBy, evidenceUsed, quarantined };
+  return { projectId, asOf: cutoff, gates, allPass, score, readiness, blockedBy, evidenceUsed, quarantined, ineligible };
+}
+
+export async function evaluateProjectAsOf(db: StarDb, projectId: string, asOf: Date): Promise<ProjectEvaluation> {
+  const [project] = await db.select().from(s.projects).where(eq(s.projects.id, projectId));
+  if (!project) throw new Error(`unknown project ${projectId}`);
+  const [narrative] = project.narrativeId
+    ? await db.select().from(s.narratives).where(eq(s.narratives.id, project.narrativeId))
+    : [undefined];
+  const rows = await db.select().from(s.evidence).where(eq(s.evidence.projectId, projectId));
+  const { loadIneligibleFacts, evidenceKey } = await import('@/lib/data/eligibility');
+  const blocked = await loadIneligibleFacts(db);
+  const byKey = new Map(blocked.map((f) => [evidenceKey(f.subjectId, f.factKind, f.payloadHash), f.reason]));
+  const ineligible = rows.flatMap((r) => {
+    if (!r.hash) return [];
+    const reason = byKey.get(evidenceKey(projectId, r.type, r.hash));
+    return reason ? [{ id: String(r.id), reason }] : [];
+  });
+  return evaluateFactsAsOf({
+    projectId,
+    asOf,
+    lifecycle: project.lifecycle,
+    discoveredAt: project.discoveredAt,
+    narrative: narrative ?? null,
+    rows,
+    ineligible,
+  });
 }
 
 function summarize(checks: GateCheck[]): string {
@@ -233,7 +320,8 @@ export async function refreshProject(db: StarDb, projectId: string, asOf: Date =
       })),
     );
   }
-  if (evaluation.score) {
+  await db.delete(s.scores).where(eq(s.scores.projectId, projectId));
+  if (evaluation.score && evaluation.readiness === 'READY') {
     await db.insert(s.scores).values({
       projectId, version: RULE_VERSION,
       narrative: evaluation.score.narrative, teamProduct: evaluation.score.teamProduct,
@@ -242,7 +330,12 @@ export async function refreshProject(db: StarDb, projectId: string, asOf: Date =
       confidence: evaluation.score.confidence, freshness: evaluation.score.freshness, computedAt: asOf,
     });
   }
-  const readinessValue = evaluation.readiness === 'READY' ? evaluation.score!.total / 100 : 0;
-  await db.update(s.projects).set({ decisionReadiness: Number(readinessValue.toFixed(3)) }).where(eq(s.projects.id, projectId));
+  const completeness = evaluation.gates.reduce((acc, g) => acc + g.completeness, 0) / Math.max(evaluation.gates.length, 1);
+  const lifecycleFit = (evaluation.score?.lifecycleFit ?? 0) / 100;
+  const opportunity = evaluation.score ? evaluation.score.total / 100 : 0;
+  const readinessValue = evaluation.readiness === 'READY'
+    ? Number((completeness * opportunity * Math.max(lifecycleFit, 0.05)).toFixed(3))
+    : 0;
+  await db.update(s.projects).set({ decisionReadiness: readinessValue }).where(eq(s.projects.id, projectId));
   return evaluation;
 }

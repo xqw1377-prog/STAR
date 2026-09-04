@@ -57,6 +57,7 @@ function latestPerCheck(rows: CheckObservation[], cutoff: string): Map<string, C
     (row) => row.ingested_at,
     (row) => row.id,
     (row) => row.check,
+    (row) => row.effective_at,
   );
 }
 
@@ -115,6 +116,7 @@ export function evaluateGatesAt(records: GateRecord[], asOf: Date): GateEvaluati
     (row) => row.ingested_at,
     (row) => row.id,
     (row) => row.check_key,
+    (row) => row.effective_at,
   );
   const results: GateResult[] = gateKeys.map((check_key) => {
     const row = latest.get(check_key);

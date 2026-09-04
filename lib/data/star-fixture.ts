@@ -11,7 +11,7 @@
 import type { ChainFact, FactKind } from './contract';
 
 export const FIXTURE_SOURCE = 'fixture';
-const CONTRACT = 'solana-readonly@2';
+const CONTRACT = 'solana-readonly@3';
 
 export interface FixtureProject {
   projectId: string;
@@ -162,7 +162,7 @@ export function fixtureTimeline(now: Date): { projectId: string; fact: ChainFact
   }));
   push('proj-neural', fact(neural, {
     ...N(9, 11), kind: 'related-wallets',
-    payload: { clusterPct: 0.12, wallets: [{ address: 'nswarmTeamVest11111111111111111111', label: 'team vesting', entity: 'Neural Swarm Team', pctOfSupply: 0.09 }, { address: 'nswarmMm111111111111111111111111111', label: 'market maker', entity: 'MM A', pctOfSupply: 0.03 }], attributionConfidence: 0.9 },
+    payload: { graphIngested: true, clusterPct: 0.12, wallets: [{ address: 'nswarmTeamVest11111111111111111111', label: 'team vesting', entity: 'Neural Swarm Team', pctOfSupply: 0.09 }, { address: 'nswarmMm111111111111111111111111111', label: 'market maker', entity: 'MM A', pctOfSupply: 0.03 }], attributionConfidence: 0.9 },
   }));
   push('proj-neural', fact(neural, {
     ...N(9, 9), kind: 'holder-distribution',
@@ -197,7 +197,7 @@ export function fixtureTimeline(now: Date): { projectId: string; fact: ChainFact
   }));
   push('proj-llm-lab', fact(llml, {
     ...L(10, 25), kind: 'related-wallets',
-    payload: { clusterPct: 0.55, wallets: [{ address: 'llmlTeam111111111111111111111111111', label: 'team', entity: 'LLM Lab Team', pctOfSupply: 0.22 }, { address: 'llmlDevVest1111111111111111111111111', label: 'dev vesting', entity: 'LLM Lab Team', pctOfSupply: 0.18 }, { address: 'llmlMm1111111111111111111111111111', label: 'market maker', entity: 'MM B', pctOfSupply: 0.15 }], attributionConfidence: 0.82 },
+    payload: { graphIngested: true, clusterPct: 0.55, wallets: [{ address: 'llmlTeam111111111111111111111111111', label: 'team', entity: 'LLM Lab Team', pctOfSupply: 0.22 }, { address: 'llmlDevVest1111111111111111111111111', label: 'dev vesting', entity: 'LLM Lab Team', pctOfSupply: 0.18 }, { address: 'llmlMm1111111111111111111111111111', label: 'market maker', entity: 'MM B', pctOfSupply: 0.15 }], attributionConfidence: 0.82 },
   }));
   push('proj-llm-lab', fact(llml, {
     ...L(10, 24), kind: 'program-verification',
@@ -228,7 +228,7 @@ export function fixtureTimeline(now: Date): { projectId: string; fact: ChainFact
   }));
   push('proj-rocket', fact(rckt, {
     ...R(8, 35), kind: 'related-wallets',
-    payload: { clusterPct: 0.45, wallets: [{ address: 'rcktOwner11111111111111111111111111', label: 'owner', entity: 'Rocket Owner', pctOfSupply: 0.45 }], attributionConfidence: 0.88 },
+    payload: { graphIngested: true, clusterPct: 0.45, wallets: [{ address: 'rcktOwner11111111111111111111111111', label: 'owner', entity: 'Rocket Owner', pctOfSupply: 0.45 }], attributionConfidence: 0.88 },
   }));
   push('proj-rocket', fact(rckt, {
     ...R(8, 34), kind: 'program-verification',
@@ -267,7 +267,7 @@ export function fixtureTimeline(now: Date): { projectId: string; fact: ChainFact
   }));
   push('proj-honeypot', fact(smy, {
     ...S(6, 45), kind: 'related-wallets',
-    payload: { clusterPct: 0.7, wallets: [{ address: 'smyOwner111111111111111111111111111', label: 'owner', entity: 'SafeMoon Owner', pctOfSupply: 0.7 }], attributionConfidence: 0.85 },
+    payload: { graphIngested: true, clusterPct: 0.7, wallets: [{ address: 'smyOwner111111111111111111111111111', label: 'owner', entity: 'SafeMoon Owner', pctOfSupply: 0.7 }], attributionConfidence: 0.85 },
   }));
   push('proj-honeypot', fact(smy, {
     ...S(6, 44), kind: 'program-verification',
