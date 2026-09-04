@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { runReplay, type ReplayMode, type ReplayRun } from '@/lib/queries';
 import { shortHash } from '@/lib/data/lineage';
 import { ReplayError } from '@/lib/data/resolve';
+import { QueryError } from '@/components/query-error';
 import { CHECK_ZH, GATE_ZH, INELIGIBLE_ZH, LINEAGE_ZH, READINESS_ZH, REPLAY_MODE_ZH, STATUS_ZH, zh, zhReason, zhSource } from '@/lib/ui/zh';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -32,7 +33,9 @@ export default function ReplayLab() {
 
   useEffect(() => {
     if (!db) return;
-    db.select({ id: s.projects.id, name: s.projects.name }).from(s.projects).then(setProjects);
+    db.select({ id: s.projects.id, name: s.projects.name }).from(s.projects)
+      .then(setProjects)
+      .catch((e) => setError(e instanceof Error ? e.message : '加载失败'));
   }, [db]);
 
   const onReplay = async () => {
@@ -97,11 +100,7 @@ export default function ReplayLab() {
         </CardContent>
       </Card>
 
-      {error && (
-        <Card>
-          <CardContent className="pt-6 text-sm text-destructive font-mono">{error}</CardContent>
-        </Card>
-      )}
+      {error ? <QueryError message={error} /> : null}
 
       {run && (
         <>

@@ -65,7 +65,7 @@ npm run build && npm start
 
 ```bash
 curl localhost:3000/api/collect                            # 来源状态（不含 RPC URL）
-# 生产默认 403。本地可设 STAR_WRITE_TOKEN 后带 Bearer。
+# 生产默认 403。生产要写必须同时设 STAR_ALLOW_WRITE=1 与 STAR_WRITE_TOKEN；缺 token 仍 403。
 curl -X POST localhost:3000/api/seed
 curl -X POST localhost:3000/api/collect -d '{"projectId":"proj-neural"}'
 curl -X POST localhost:3000/api/collect -d '{"provider":"solana-rpc"}'   # → 403（DATA-006）

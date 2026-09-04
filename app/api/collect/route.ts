@@ -5,7 +5,7 @@ import * as s from '@/db/schema';
 import { collectProject } from '@/lib/data/collect';
 import { createProvider, providerStatus } from '@/lib/data/provider';
 import { SourceNotEnabledError } from '@/lib/data/source-registry';
-import { assertWriteAccess, writeDeniedResponse } from '@/lib/security/write-guard';
+import { assertWritable, writeDeniedResponse } from '@/lib/security/write-guard';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    assertWriteAccess(req);
+    assertWritable(req);
     const body = await req.json().catch(() => ({}));
     if (!body.projectId || typeof body.projectId !== 'string') {
       return NextResponse.json({ ok: false, error: 'projectId is required' }, { status: 400 });
@@ -62,6 +62,6 @@ export async function POST(req: Request) {
   } catch (e: unknown) {
     const denied = writeDeniedResponse(e);
     if (denied) return NextResponse.json(denied.body, { status: denied.status });
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
+    return NextResponse.json({ ok: false, error: 'internal error' }, { status: 500 });
   }
 }

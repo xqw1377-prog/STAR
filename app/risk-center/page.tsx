@@ -6,15 +6,18 @@ import { getProjectsWithReadiness } from '@/lib/queries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { QueryError } from '@/components/query-error';
 import { GATE_ZH, INELIGIBLE_ZH, READINESS_ZH, STATUS_ZH, zh, zhReason } from '@/lib/ui/zh';
 
 export default function RiskCenter() {
   const db = useDb();
   const [projects, setProjects] = useState<Awaited<ReturnType<typeof getProjectsWithReadiness>>>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!db) return;
-    getProjectsWithReadiness(db).then(setProjects);
+    setError(null);
+    getProjectsWithReadiness(db).then(setProjects).catch((e) => setError(e instanceof Error ? e.message : '加载失败'));
   }, [db]);
 
   const rows = projects.flatMap((p) =>
@@ -44,6 +47,7 @@ export default function RiskCenter() {
         <h1 className="text-2xl font-bold tracking-tight">风险中心</h1>
         <p className="text-sm text-muted-foreground">当前会推翻判断的未通过 / 未知项。合成夹具，不是实时告警总线。</p>
       </div>
+      {error ? <QueryError message={error} /> : null}
       <Card>
         <CardHeader>
           <CardTitle>开放风险 {rows.length}</CardTitle>

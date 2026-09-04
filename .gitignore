@@ -25,8 +25,16 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
-.env*.local
+# env files (keep the example)
+.env
+.env.*
+!.env.example
+
+# deploy / signing material (never in this tree)
+*_deploy_key
+*.pem
+id_rsa
+id_ed25519
 
 # vercel
 .vercel

@@ -6,15 +6,18 @@ import { getNarratives } from '@/lib/queries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { QueryError } from '@/components/query-error';
 import { LIFECYCLE_ZH, zh } from '@/lib/ui/zh';
 
 export default function NarrativeMap() {
   const db = useDb();
   const [narratives, setNarratives] = useState<Awaited<ReturnType<typeof getNarratives>>>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!db) return;
-    getNarratives(db).then(setNarratives);
+    setError(null);
+    getNarratives(db).then(setNarratives).catch((e) => setError(e instanceof Error ? e.message : '加载失败'));
   }, [db]);
 
   const chart = narratives.map(n => ({
@@ -30,6 +33,7 @@ export default function NarrativeMap() {
     <main className="p-6 space-y-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold tracking-tight">叙事地图</h1>
       <p className="text-sm text-muted-foreground">语义簇、阶段与速度/广度信号</p>
+      {error ? <QueryError message={error} /> : null}
 
       <div className="h-64 bg-card border rounded-lg p-4">
         <ResponsiveContainer width="100%" height="100%">

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { shortHash } from '@/lib/data/lineage';
+import { QueryError } from '@/components/query-error';
 import { CHECK_ZH, GATE_ZH, INELIGIBLE_ZH, LIFECYCLE_ZH, LINEAGE_ZH, STATUS_ZH, zh, zhReason, zhSource } from '@/lib/ui/zh';
 
 export default function ProjectAudit() {
@@ -18,11 +19,17 @@ export default function ProjectAudit() {
   const db = useDb();
   const [data, setData] = useState<Awaited<ReturnType<typeof getProjectDetail>> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!db) return;
-    const d = await getProjectDetail(db, id);
-    setData(d);
+    try {
+      setError(null);
+      const d = await getProjectDetail(db, id);
+      setData(d);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '加载失败');
+    }
   }, [db, id]);
 
   useEffect(() => {
@@ -32,12 +39,24 @@ export default function ProjectAudit() {
   const onRefresh = async () => {
     if (!db) return;
     setLoading(true);
-    await refreshProject(db, id);
-    await load();
-    setLoading(false);
+    try {
+      await refreshProject(db, id);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '刷新失败');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (!data) return null;
+  if (!data && !error) return null;
+  if (!data) {
+    return (
+      <main className="p-6 space-y-6 max-w-6xl mx-auto">
+        <QueryError message={error ?? '加载失败'} />
+      </main>
+    );
+  }
   const { project, narrative, token, pools, evidence, gates, score, wallets, entities, edges, decision, evaluation, lineage } = data;
 
   const scoreBar = (label: string, value: number) => (
@@ -56,6 +75,7 @@ export default function ProjectAudit() {
     <main className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="flex items-start justify-between gap-4">
         <div>
+          {error ? <QueryError message={error} /> : null}
           <h1 className="text-2xl font-bold tracking-tight">{project.name} <span className="text-muted-foreground text-base font-normal">({project.symbol})</span></h1>
           <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
             <span>{narrative?.name}</span>

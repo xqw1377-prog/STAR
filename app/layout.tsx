@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { headers } from "next/headers";
 import Link from "next/link";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -27,8 +28,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = headers().get("x-nonce") ?? undefined;
   return (
-    <html lang="zh-CN" className={cn("font-sans", geistSans.variable)}>
+    <html lang="zh-CN" className={cn("font-sans", geistSans.variable)} nonce={nonce}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <header className="border-b border-border bg-card">
           <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-3">

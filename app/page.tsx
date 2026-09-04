@@ -7,6 +7,7 @@ import { formatRate } from '@/lib/data/health';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { QueryError } from '@/components/query-error';
 import { DEGRADED_ZH, GATE_ZH, HEALTH_RATE_ZH, LIFECYCLE_ZH, STATUS_ZH, zh } from '@/lib/ui/zh';
 
 export default function StarDesk() {
@@ -14,12 +15,16 @@ export default function StarDesk() {
   const [projects, setProjects] = useState<Awaited<ReturnType<typeof getProjectsWithReadiness>>>([]);
   const [narratives, setNarratives] = useState<Awaited<ReturnType<typeof getNarratives>>>([]);
   const [health, setHealth] = useState<Awaited<ReturnType<typeof getDeskHealth>> | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!db) return;
-    getProjectsWithReadiness(db).then(setProjects);
-    getNarratives(db).then(setNarratives);
-    getDeskHealth(db).then(setHealth);
+    setError(null);
+    Promise.all([
+      getProjectsWithReadiness(db).then(setProjects),
+      getNarratives(db).then(setNarratives),
+      getDeskHealth(db).then(setHealth),
+    ]).catch((e) => setError(e instanceof Error ? e.message : '加载失败'));
   }, [db]);
 
   const passList = projects
@@ -33,6 +38,7 @@ export default function StarDesk() {
         <h1 className="text-2xl font-bold tracking-tight">研究台</h1>
         <p className="text-sm text-muted-foreground">只读研究台 · 今日候选、风险队列与叙事轮动</p>
       </div>
+      {error ? <QueryError message={error} /> : null}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>

@@ -6,17 +6,22 @@ import { getNarratives, getProjectsWithReadiness } from '@/lib/queries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { QueryError } from '@/components/query-error';
 import { LIFECYCLE_ZH, READINESS_ZH, zh } from '@/lib/ui/zh';
 
 export default function CycleRadar() {
   const db = useDb();
   const [narratives, setNarratives] = useState<Awaited<ReturnType<typeof getNarratives>>>([]);
   const [projects, setProjects] = useState<Awaited<ReturnType<typeof getProjectsWithReadiness>>>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!db) return;
-    getNarratives(db).then(setNarratives);
-    getProjectsWithReadiness(db).then(setProjects);
+    setError(null);
+    Promise.all([
+      getNarratives(db).then(setNarratives),
+      getProjectsWithReadiness(db).then(setProjects),
+    ]).catch((e) => setError(e instanceof Error ? e.message : '加载失败'));
   }, [db]);
 
   return (
@@ -25,6 +30,7 @@ export default function CycleRadar() {
         <h1 className="text-2xl font-bold tracking-tight">周期雷达</h1>
         <p className="text-sm text-muted-foreground">合成夹具上的叙事迁移与项目阶段，不是真实资金流。</p>
       </div>
+      {error ? <QueryError message={error} /> : null}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {narratives.map((n) => {
           const members = projects.filter((p) => p.narrativeId === n.id);
