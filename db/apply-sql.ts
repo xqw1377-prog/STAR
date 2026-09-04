@@ -23,7 +23,7 @@ export function stripSqlComments(sql: string): string {
 type SqlName = 'init.sql' | 'init-d1.sql' | 'init-d1b.sql' | 'init-d1c.sql' | 'init-d1d.sql' | 'init-d1-triggers.sql';
 
 type PgliteLike = {
-  query: (sql: string) => Promise<unknown>;
+  query: (sql: string, params?: unknown[]) => Promise<unknown>;
   exec: (sql: string) => Promise<unknown>;
 };
 
@@ -47,14 +47,16 @@ async function readVersion(pglite: PgliteLike): Promise<number> {
 }
 
 async function writeVersion(pglite: PgliteLike, version: number): Promise<void> {
-  await pglite.exec(`
-    INSERT INTO star_schema_version (id, version, label, applied_at)
-    VALUES (1, ${version}, '${SCHEMA_LABEL}', now())
-    ON CONFLICT (id) DO UPDATE SET
-      version = EXCLUDED.version,
-      label = EXCLUDED.label,
-      applied_at = EXCLUDED.applied_at;
-  `);
+  // 参数化写入，避免字符串插值拼接进 SQL（L2：SCHEMA_LABEL/version 不再内联）。
+  await pglite.query(
+    `INSERT INTO star_schema_version (id, version, label, applied_at)
+     VALUES (1, $1, $2, now())
+     ON CONFLICT (id) DO UPDATE SET
+       version = EXCLUDED.version,
+       label = EXCLUDED.label,
+       applied_at = EXCLUDED.applied_at;`,
+    [version, SCHEMA_LABEL],
+  );
 }
 
 /**

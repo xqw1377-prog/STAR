@@ -4,7 +4,7 @@
 import { drizzle } from 'drizzle-orm/pglite';
 import * as schema from '@/db/schema';
 import * as fixtures from '@/db/star-fixtures';
-import { refreshProject } from './star-engine';
+import { evaluateProjectAsOf, persistEvaluation } from './star-engine';
 import { ensureCoreAndD1 } from '@/db/apply-sql';
 import { backfillLedgerFromEvidence } from '@/lib/data/ledger-seed';
 
@@ -41,26 +41,8 @@ export async function initDb(): Promise<StarDb> {
   return dbInstance;
 }
 
-async function reseed(db: StarDb) {
-  const { wipeLedger } = await import('@/lib/data/ledger-seed');
-  await wipeLedger(db);
-  await db.delete(schema.graphEdges);
-  await db.delete(schema.wallets);
-  await db.delete(schema.entities);
-  await db.delete(schema.evidence);
-  await db.delete(schema.pools);
-  await db.delete(schema.tokens);
-  await db.delete(schema.scores);
-  await db.delete(schema.gates);
-  await db.delete(schema.decisions);
-  await db.delete(schema.shadowPositions);
-  await db.delete(schema.projects);
-  await db.delete(schema.narratives);
-  await db.delete(schema.chains);
-  await seed(db);
-}
-
-async function seed(db: StarDb) {
+/** 单事务内的灌库核心步骤（供 seed/reseed 复用，避免嵌套事务）。M2。 */
+async function seedInner(db: StarDb) {
   await db.insert(schema.chains).values(fixtures.chains);
   await db.insert(schema.narratives).values(fixtures.narratives);
   await db.insert(schema.projects).values(fixtures.projects);
@@ -72,9 +54,38 @@ async function seed(db: StarDb) {
   await db.insert(schema.graphEdges).values(fixtures.graphEdges);
 
   for (const p of fixtures.projects) {
-    await refreshProject(db, p.id);
+    // 复用调用方已开启的事务直接落库，避免嵌套事务（M2）。
+    const evaluation = await evaluateProjectAsOf(db, p.id, new Date());
+    await persistEvaluation(db, evaluation);
   }
   await backfillLedgerFromEvidence(db);
+}
+
+async function seed(db: StarDb) {
+  return db.transaction(async (tx) => {
+    await seedInner(tx as unknown as StarDb);
+  });
+}
+
+async function reseed(db: StarDb) {
+  const { wipeLedger } = await import('@/lib/data/ledger-seed');
+  return db.transaction(async (tx) => {
+    await wipeLedger(tx as unknown as StarDb);
+    await tx.delete(schema.graphEdges);
+    await tx.delete(schema.wallets);
+    await tx.delete(schema.entities);
+    await tx.delete(schema.evidence);
+    await tx.delete(schema.pools);
+    await tx.delete(schema.tokens);
+    await tx.delete(schema.scores);
+    await tx.delete(schema.gates);
+    await tx.delete(schema.decisions);
+    await tx.delete(schema.shadowPositions);
+    await tx.delete(schema.projects);
+    await tx.delete(schema.narratives);
+    await tx.delete(schema.chains);
+    await seedInner(tx as unknown as StarDb);
+  });
 }
 
 export function getDb(): StarDb {

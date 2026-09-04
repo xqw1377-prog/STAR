@@ -14,6 +14,14 @@
 /** Unique observation contract (D2). Gate interpretation is `star-web/lib/domain`. */
 export const CONTRACT_VERSION = 'solana-readonly@3' as const;
 
+/**
+ * M1 market-fact contract. Distinct from the frozen research union
+ * (`solana-readonly@3`): pool-birth / pool-book / priority-fee carry their own
+ * version so ledger rows never masquerade as frozen research facts. These
+ * kinds are not `assertFact`-validated against the research schema (M3).
+ */
+export const MARKET_CONTRACT_VERSION = 'solana-market@1' as const;
+
 export const FACT_KINDS = [
   'mint-authority',
   'freeze-authority',

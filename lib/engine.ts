@@ -183,54 +183,61 @@ export function evaluateFactsAsOf(input: EvaluateFactsInput): ProjectEvaluation 
 
   let score: ScoreBreakdown | null = null;
   if (allPass) {
-    const holders = latest.get('holder-distribution')!;
-    const related = latest.get('related-wallets')!;
-    const liq = latest.get('liquidity')!;
-    const prog = latest.get('program-verification')!;
-    const holdersPayload = payloads.get(holders.id) as HolderDistributionPayload;
-    const holdersPct = holdersPayload.top10PctEntityAdjusted ?? holdersPayload.top10Pct;
-    const clusterPct = (payloads.get(related.id) as RelatedWalletsPayload).clusterPct;
-    const tvl = (payloads.get(liq.id) as LiquidityPayload).tvlUsdTotal!;
-    const progPayload = payloads.get(prog.id) as ProgramVerificationPayload;
-    const narr = resolveNarrativeAt(researchRows, asOf);
-    const life = resolveLifecycleAt(researchRows, asOf);
-    const hasNarrFacts = researchRows.some((r) => r.type === 'narrative-snapshot' && r.observedAt <= asOf && r.effectiveAt <= asOf);
-    const hasLifeFacts = researchRows.some((r) => r.type === 'lifecycle-transition' && r.observedAt <= asOf && r.effectiveAt <= asOf);
-    const narrativeAt = narr.contested
-      ? null
-      : narr.payload
-        ? narr.payload
-        : !input.ignoreCache && !hasNarrFacts && narrative && narrative.updatedAt <= asOf
-          ? narrative
-          : null;
-    const lifecycleAt = life.contested
-      ? 'UNKNOWN'
-      : hasLifeFacts
-        ? life.stage
-        : !input.ignoreCache && input.discoveredAt <= asOf
-          ? input.lifecycle
-          : 'UNKNOWN';
-    const narrativeScore = narrativeAt
-      ? ((narrativeAt.novelty + narrativeAt.velocity + narrativeAt.breadth + narrativeAt.onChainConfirm + narrativeAt.survival) / 5) * 100
-      : 50;
-    const parts = {
-      narrative: narrativeScore,
-      teamProduct: progPayload.verifiedBuild ? 80 : 60,
-      capitalHolders: Math.max(0, Math.min(100, Math.round(100 - 120 * Math.max(holdersPct, clusterPct)))),
-      marketStructure: Math.max(0, Math.min(90, Math.round((tvl / 1_000_000) * 40 + 40))),
-      lifecycleFit: lifecycleScore(lifecycleAt),
-    };
-    const total = Object.entries(WEIGHTS).reduce((acc, [k, w]) => acc + parts[k as keyof typeof parts] * w, 0);
-    const newestObserved = Math.max(...evidenceUsed.map((e) => new Date(e.observedAt).getTime()));
-    const freshness = Math.max(0, 1 - (asOf.getTime() - newestObserved) / 86400000 / 7);
-    const sources = new Set(evidenceUsed.map((e) => e.source));
-    const confidence = Number(Math.min(1, 0.35 + 0.25 * freshness + 0.2 * Math.min(sources.size, 3) / 3 + 0.2).toFixed(2));
-    score = {
-      ...parts,
-      total: Number(total.toFixed(1)),
-      confidence,
-      freshness: Number(freshness.toFixed(2)),
-    };
+    const holders = latest.get('holder-distribution');
+    const related = latest.get('related-wallets');
+    const liq = latest.get('liquidity');
+    const prog = latest.get('program-verification');
+    // 评分依赖四类事实存在；缺任一则不产分（fail-closed），而非依赖
+    // allPass 的前置不变式 + 非空断言。L1。
+    if (!holders || !related || !liq || !prog) {
+      blockedBy.push('scoring-requires-holder/related/liquidity/program-evidence');
+      score = null;
+    } else {
+      const holdersPayload = payloads.get(holders.id) as HolderDistributionPayload;
+      const holdersPct = holdersPayload.top10PctEntityAdjusted ?? holdersPayload.top10Pct;
+      const clusterPct = (payloads.get(related.id) as RelatedWalletsPayload).clusterPct;
+      const tvl = (payloads.get(liq.id) as LiquidityPayload).tvlUsdTotal ?? 0;
+      const progPayload = payloads.get(prog.id) as ProgramVerificationPayload;
+      const narr = resolveNarrativeAt(researchRows, asOf);
+      const life = resolveLifecycleAt(researchRows, asOf);
+      const hasNarrFacts = researchRows.some((r) => r.type === 'narrative-snapshot' && r.observedAt <= asOf && r.effectiveAt <= asOf);
+      const hasLifeFacts = researchRows.some((r) => r.type === 'lifecycle-transition' && r.observedAt <= asOf && r.effectiveAt <= asOf);
+      const narrativeAt = narr.contested
+        ? null
+        : narr.payload
+          ? narr.payload
+          : !input.ignoreCache && !hasNarrFacts && narrative && narrative.updatedAt <= asOf
+            ? narrative
+            : null;
+      const lifecycleAt = life.contested
+        ? 'UNKNOWN'
+        : hasLifeFacts
+          ? life.stage
+          : !input.ignoreCache && input.discoveredAt <= asOf
+            ? input.lifecycle
+            : 'UNKNOWN';
+      const narrativeScore = narrativeAt
+        ? ((narrativeAt.novelty + narrativeAt.velocity + narrativeAt.breadth + narrativeAt.onChainConfirm + narrativeAt.survival) / 5) * 100
+        : 50;
+      const parts = {
+        narrative: narrativeScore,
+        teamProduct: progPayload.verifiedBuild ? 80 : 60,
+        capitalHolders: Math.max(0, Math.min(100, Math.round(100 - 120 * Math.max(holdersPct, clusterPct)))),
+        marketStructure: Math.max(0, Math.min(90, Math.round((tvl / 1_000_000) * 40 + 40))),
+        lifecycleFit: lifecycleScore(lifecycleAt),
+      };
+      const total = Object.entries(WEIGHTS).reduce((acc, [k, w]) => acc + parts[k as keyof typeof parts] * w, 0);
+      const newestObserved = Math.max(...evidenceUsed.map((e) => new Date(e.observedAt).getTime()));
+      const freshness = Math.max(0, 1 - (asOf.getTime() - newestObserved) / 86400000 / 7);
+      const sources = new Set(evidenceUsed.map((e) => e.source));
+      const confidence = Number(Math.min(1, 0.35 + 0.25 * freshness + 0.2 * Math.min(sources.size, 3) / 3 + 0.2).toFixed(2));
+      score = {
+        ...parts,
+        total: Number(total.toFixed(1)),
+        confidence,
+        freshness: Number(freshness.toFixed(2)),
+      };
+    }
   }
 
   const life = resolveLifecycleAt(researchRows, asOf);
@@ -304,9 +311,14 @@ export async function computeOpportunityScore(db: StarDb, projectId: string) {
   return score ?? zeros;
 }
 
-/** Persist gate groups, score (only when earned) and decision readiness. */
-export async function refreshProject(db: StarDb, projectId: string, asOf: Date = new Date()) {
-  const evaluation = await evaluateProjectAsOf(db, projectId, asOf);
+/**
+ * 将一份评估结果落库（gates / score / projects.decisionReadiness）。
+ * 不开启自身事务——由调用方决定是否在事务内执行：
+ * 独立调用经 refreshProject（自带事务）；seed 复用同一条外层事务以便整个
+ * 重建原子（M2），避免在既有事务上嵌套 BEGIN。
+ */
+export async function persistEvaluation(db: StarDb, evaluation: ProjectEvaluation): Promise<void> {
+  const { projectId, asOf } = evaluation;
   await db.delete(s.gates).where(eq(s.gates.projectId, projectId));
   if (evaluation.gates.length) {
     await db.insert(s.gates).values(
@@ -315,8 +327,8 @@ export async function refreshProject(db: StarDb, projectId: string, asOf: Date =
         ruleVersion: RULE_VERSION,
         category: g.gate,
         status: g.status,
-        reason: `${g.reason} [rule ${RULE_VERSION} @ ${evaluation.asOf}]`,
-        checkedAt: asOf,
+        reason: `${g.reason} [rule ${RULE_VERSION} @ ${asOf}]`,
+        checkedAt: new Date(asOf),
       })),
     );
   }
@@ -327,7 +339,7 @@ export async function refreshProject(db: StarDb, projectId: string, asOf: Date =
       narrative: evaluation.score.narrative, teamProduct: evaluation.score.teamProduct,
       capitalHolders: evaluation.score.capitalHolders, marketStructure: evaluation.score.marketStructure,
       lifecycleFit: evaluation.score.lifecycleFit, total: evaluation.score.total,
-      confidence: evaluation.score.confidence, freshness: evaluation.score.freshness, computedAt: asOf,
+      confidence: evaluation.score.confidence, freshness: evaluation.score.freshness, computedAt: new Date(asOf),
     });
   }
   const completeness = evaluation.gates.reduce((acc, g) => acc + g.completeness, 0) / Math.max(evaluation.gates.length, 1);
@@ -337,5 +349,13 @@ export async function refreshProject(db: StarDb, projectId: string, asOf: Date =
     ? Number((completeness * opportunity * Math.max(lifecycleFit, 0.05)).toFixed(3))
     : 0;
   await db.update(s.projects).set({ decisionReadiness: readinessValue }).where(eq(s.projects.id, projectId));
+}
+
+/** Persist gate groups, score (only when earned) and decision readiness — atomic. */
+export async function refreshProject(db: StarDb, projectId: string, asOf: Date = new Date()) {
+  const evaluation = await evaluateProjectAsOf(db, projectId, asOf);
+  await db.transaction(async (tx) => {
+    await persistEvaluation(tx as unknown as StarDb, evaluation);
+  });
   return evaluation;
 }

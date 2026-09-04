@@ -15,6 +15,7 @@ import {
 } from '@/lib/data/ledger';
 import { assertSourceEnabled } from '@/lib/data/source-registry';
 import type { ChainFact } from '@/lib/data/contract';
+import { MARKET_CONTRACT_VERSION } from '@/lib/data/contract';
 import * as schema from '@/db/schema';
 import type { NewPoolBirth, PoolBookSnapshot, PriorityFeeObservation } from './types';
 import { RECORDER_VERSION } from './types';
@@ -86,7 +87,9 @@ function asMarketFact(kind: string, payload: Record<string, unknown>, opts: {
 }): ChainFact {
   return {
     kind: kind as ChainFact['kind'],
-    contractVersion: 'solana-readonly@3',
+    // M1 market facts live under their own contract version so they never
+    // masquerade as frozen research facts (solana-readonly@3). M3.
+    contractVersion: MARKET_CONTRACT_VERSION,
     observedAt: opts.observedAt,
     slot: opts.slot,
     source: opts.source,

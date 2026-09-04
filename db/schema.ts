@@ -133,6 +133,11 @@ export const graphEdges = pgTable('graph_edges', {
   pk: primaryKey({ columns: [t.source, t.target, t.type, t.projectId] }),
 }));
 
+/**
+ * M5 paper-authorized (rev2) — NO runtime writes until M5-EVIDENCE is done.
+ * Presence is structural only; nothing in the current runtime graph inserts
+ * into it. L4.
+ */
 export const shadowPositions = pgTable('shadow_positions', {
   id: serial('id').primaryKey(),
   projectId: text('project_id').notNull().references(() => projects.id),

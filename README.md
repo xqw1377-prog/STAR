@@ -53,6 +53,10 @@ ReadonlyChainProvider ──assertFact──▶ evidence + D1 账本（attempt/r
 
 ## 本地运行
 
+软件与运维边界（部署前须知）：
+- 写限流（`STAR_WRITE_RATE_LIMIT`）为**单进程内存**上限。横向扩展（>1 实例）前必须改用共享存储（Redis/DB），否则每实例上限可被倍数绕过。
+- P1 真正接入真实数据源前，需在许可证矩阵中将其从 BLOCKED/LEGAL_REVIEW 变更为 ENABLED（`lib/data/source-registry.ts` 为代码级镜像，无运行时覆盖）。
+
 ```bash
 npm run dev            # http://localhost:3000（浏览器自动建表并灌入夹具）
 npm run typecheck      # tsc --noEmit

@@ -714,6 +714,6 @@ STAR Alpha Report v0
 | Shadow | 30 日 + 样本量 + 热/冷覆盖 | M4 |
 | 之后 | 仅当 M4 通过才讨论 `MICRO-LIVE` | M5 仍默认禁止 |
 
-未签署 rev1 之前：不开发 M1 Recorder、回测器、策略优化器、排行榜；不把代码存在写成能力通过。  
-签署 rev1 之后的顺序：`M1-BUILD` → 连续记录 ≥7 天 → `M1-EVIDENCE` → M2 独立执行 Oracle。不再继续研究型壳开发。  
-M3 / M4 未满足证据门槛前，不讨论 Micro-Live。
+rev1 已签署。顺序：`M1-BUILD` → 连续记录 ≥7 天 → `M1-EVIDENCE` → M2 独立执行 Oracle。不再继续研究型壳开发。  
+回测器、策略优化器、排行榜在 M1-EVIDENCE 完成前禁止。  
+M5-BUILD 虽已授权，本轮按顺序不开工。M3 / M4 未满足证据门槛前，Micro-Live 结果不得计入正式成绩。
