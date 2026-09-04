@@ -368,6 +368,47 @@ export async function completeSuccess(
   return { outcomeId, receiptId: receipt.receiptId };
 }
 
+/**
+ * Recorder / non-gate observations. Does not go through assertFact.
+ * kind is a free string (e.g. new-pool-birth); not a gate FactKind.
+ */
+export async function completeObservation(
+  db: StarDb,
+  args: {
+    attemptId: string;
+    observationKey: string;
+    projectId: string;
+    kind: string;
+    payload: unknown;
+    observedAt: Date;
+    slot?: number | null;
+    source: string;
+    sourceUrl?: string | null;
+    writeEvidence?: boolean;
+    completedAt?: Date;
+  },
+): Promise<{ outcomeId: string; receiptId: string }> {
+  const fact = {
+    kind: args.kind as ChainFact['kind'],
+    contractVersion: 'solana-readonly@3',
+    observedAt: args.observedAt.toISOString(),
+    slot: args.slot ?? null,
+    source: args.source,
+    sourceUrl: args.sourceUrl ?? null,
+    chainId: 'solana' as const,
+    mint: '11111111111111111111111111111111',
+    payload: args.payload as ChainFact['payload'],
+  };
+  return completeSuccess(db, {
+    attemptId: args.attemptId,
+    observationKey: args.observationKey,
+    projectId: args.projectId,
+    fact,
+    writeEvidence: args.writeEvidence ?? false,
+    completedAt: args.completedAt,
+  });
+}
+
 export async function completeFailure(
   db: StarDb,
   args: { attemptId: string; error: unknown },

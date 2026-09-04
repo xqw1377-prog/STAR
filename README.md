@@ -12,8 +12,10 @@
 STAR 研究基础设施 = 部分实现
 STAR 赚钱能力     = NO-EVIDENCE
 M0-OBJECTIVE      = FROZEN
-M0-MEASUREMENT    = HOLD / UNSIGNED
-M1 / M2           = NOT STARTED
+M0-MEASUREMENT    = FROZEN
+M1-BUILD          = IN PROGRESS
+M1-EVIDENCE       = NOT STARTED
+M2-BUILD          = NOT STARTED
 M3 / M4           = DENIED
 M5 / M6           = DENIED
 资金权限          = DENIED
@@ -21,8 +23,8 @@ P1                = NO-GO
 ```
 
 六门禁、分数、页面、单测通过，只证明研究工具可运行，不证明存在 Alpha。  
-测量合同见 `docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md`。终审见 `docs/alpha/M0.1-FINAL-REVIEW.md`。  
-M0 rev1 未签署前，不开发 M1 Recorder、回测器或策略优化器。
+测量合同见 `docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md`（`M0 FROZEN rev1`）。  
+M1 Recorder 只记事实。回测器与策略优化器在 M1-EVIDENCE 完成前禁止。
 
 说明：网络冒烟中的买卖报价仅证明**报价端点可响应**，不证明模拟与真实路由一致、指定规模可成交、拥堵/失败概率/费用准确，也不代表数据来源已获准使用。持币事实在公共 RPC 限流下不可得（fail-closed → 门禁 UNKNOWN），实体调整集中度未实现。PGlite 的运行时绝对路径加载是**环境修复而非稳定架构**，已登记为部署债务（`docs/verification/VERIFICATION.md`）。
 
@@ -91,8 +93,9 @@ STAR_SMOKE=1 npx vitest run lib/data/rpc-smoke.test.ts
 
 ## 文档
 
-- [赚钱能力合同 rev0](docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md)（M0-MEASUREMENT = HOLD / UNSIGNED）
-- [M0.1 五章终审](docs/alpha/M0.1-FINAL-REVIEW.md)（待签确定值已写齐，未接受不得签 rev1）
+- [赚钱能力合同 rev1](docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md)（M0-MEASUREMENT = FROZEN）
+- [M0.1 签署工作单](docs/alpha/M0.1-ACCEPTANCE-WORKSHEET.md)（22 ACCEPT）
+- [M0.1 五章终审](docs/alpha/M0.1-FINAL-REVIEW.md)（签署前记录，不可改写）
 - [产品定义 v1.0](docs/product/README.md)（docx SHA-256 为准）
 - [P0-DATA 基线](docs/p0-data/BASELINE.md)
 - [数据源与许可证矩阵](docs/p0-data/SOURCE_LICENSE_MATRIX.md)
