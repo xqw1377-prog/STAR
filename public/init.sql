@@ -1,12 +1,12 @@
-CREATE TYPE "public"."alert_level" AS ENUM('CRITICAL', 'HIGH', 'MEDIUM', 'INFO');
-CREATE TYPE "public"."gate_status" AS ENUM('PASS', 'FAIL', 'UNKNOWN');
-CREATE TYPE "public"."lifecycle" AS ENUM('SEED', 'IGNITION', 'VERIFIED', 'ACCELERATION', 'CROWDING', 'DISTRIBUTION', 'DEAD');
-CREATE TABLE "chains" (
+DO $$ BEGIN CREATE TYPE "public"."alert_level" AS ENUM('CRITICAL', 'HIGH', 'MEDIUM', 'INFO'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "public"."gate_status" AS ENUM('PASS', 'FAIL', 'UNKNOWN'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE TYPE "public"."lifecycle" AS ENUM('SEED', 'IGNITION', 'VERIFIED', 'ACCELERATION', 'CROWDING', 'DISTRIBUTION', 'DEAD'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+CREATE TABLE IF NOT EXISTS "chains" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL
 );
 
-CREATE TABLE "decisions" (
+CREATE TABLE IF NOT EXISTS "decisions" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"project_id" text NOT NULL,
 	"conclusion" text NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE "decisions" (
 	"updated_at" timestamp with time zone NOT NULL
 );
 
-CREATE TABLE "entities" (
+CREATE TABLE IF NOT EXISTS "entities" (
 	"id" text PRIMARY KEY NOT NULL,
 	"project_id" text NOT NULL,
 	"name" text NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE "entities" (
 	"evidence_summary" text
 );
 
-CREATE TABLE "evidence" (
+CREATE TABLE IF NOT EXISTS "evidence" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"project_id" text NOT NULL,
 	"type" text NOT NULL,
@@ -40,7 +40,7 @@ CREATE TABLE "evidence" (
 	"conflict_with" integer
 );
 
-CREATE TABLE "gates" (
+CREATE TABLE IF NOT EXISTS "gates" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"project_id" text NOT NULL,
 	"rule_version" text DEFAULT 'v1.0' NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE "gates" (
 	"checked_at" timestamp with time zone NOT NULL
 );
 
-CREATE TABLE "graph_edges" (
+CREATE TABLE IF NOT EXISTS "graph_edges" (
 	"source" text NOT NULL,
 	"target" text NOT NULL,
 	"project_id" text NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE "graph_edges" (
 	CONSTRAINT "graph_edges_source_target_type_project_id_pk" PRIMARY KEY("source","target","type","project_id")
 );
 
-CREATE TABLE "narratives" (
+CREATE TABLE IF NOT EXISTS "narratives" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"stage" "lifecycle" DEFAULT 'SEED' NOT NULL,
@@ -74,7 +74,7 @@ CREATE TABLE "narratives" (
 	"aliases" jsonb DEFAULT '[]'::jsonb NOT NULL
 );
 
-CREATE TABLE "pools" (
+CREATE TABLE IF NOT EXISTS "pools" (
 	"id" text PRIMARY KEY NOT NULL,
 	"project_id" text NOT NULL,
 	"dex" text NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE "pools" (
 	"lock_info" jsonb
 );
 
-CREATE TABLE "projects" (
+CREATE TABLE IF NOT EXISTS "projects" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"symbol" text NOT NULL,
@@ -99,7 +99,7 @@ CREATE TABLE "projects" (
 	"discovered_at" timestamp with time zone NOT NULL
 );
 
-CREATE TABLE "scores" (
+CREATE TABLE IF NOT EXISTS "scores" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"project_id" text NOT NULL,
 	"version" text DEFAULT 'v1.0' NOT NULL,
@@ -114,7 +114,7 @@ CREATE TABLE "scores" (
 	"computed_at" timestamp with time zone NOT NULL
 );
 
-CREATE TABLE "shadow_positions" (
+CREATE TABLE IF NOT EXISTS "shadow_positions" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"project_id" text NOT NULL,
 	"entry_at" timestamp with time zone NOT NULL,
@@ -125,7 +125,7 @@ CREATE TABLE "shadow_positions" (
 	"exit_reason" text
 );
 
-CREATE TABLE "tokens" (
+CREATE TABLE IF NOT EXISTS "tokens" (
 	"id" text PRIMARY KEY NOT NULL,
 	"project_id" text NOT NULL,
 	"mint_authority" text,
@@ -137,7 +137,7 @@ CREATE TABLE "tokens" (
 	"upgrade_authority" text
 );
 
-CREATE TABLE "wallets" (
+CREATE TABLE IF NOT EXISTS "wallets" (
 	"id" text PRIMARY KEY NOT NULL,
 	"project_id" text NOT NULL,
 	"address" text NOT NULL,
@@ -147,15 +147,15 @@ CREATE TABLE "wallets" (
 	"balance_usd" real
 );
 
-ALTER TABLE "decisions" ADD CONSTRAINT "decisions_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "entities" ADD CONSTRAINT "entities_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "evidence" ADD CONSTRAINT "evidence_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "gates" ADD CONSTRAINT "gates_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "graph_edges" ADD CONSTRAINT "graph_edges_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "pools" ADD CONSTRAINT "pools_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "projects" ADD CONSTRAINT "projects_chain_id_chains_id_fk" FOREIGN KEY ("chain_id") REFERENCES "public"."chains"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "projects" ADD CONSTRAINT "projects_narrative_id_narratives_id_fk" FOREIGN KEY ("narrative_id") REFERENCES "public"."narratives"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "scores" ADD CONSTRAINT "scores_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "shadow_positions" ADD CONSTRAINT "shadow_positions_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "tokens" ADD CONSTRAINT "tokens_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;
-ALTER TABLE "wallets" ADD CONSTRAINT "wallets_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action;
+DO $$ BEGIN ALTER TABLE "decisions" ADD CONSTRAINT "decisions_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "entities" ADD CONSTRAINT "entities_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "evidence" ADD CONSTRAINT "evidence_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "gates" ADD CONSTRAINT "gates_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "graph_edges" ADD CONSTRAINT "graph_edges_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "pools" ADD CONSTRAINT "pools_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "projects" ADD CONSTRAINT "projects_chain_id_chains_id_fk" FOREIGN KEY ("chain_id") REFERENCES "public"."chains"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "projects" ADD CONSTRAINT "projects_narrative_id_narratives_id_fk" FOREIGN KEY ("narrative_id") REFERENCES "public"."narratives"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "scores" ADD CONSTRAINT "scores_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "shadow_positions" ADD CONSTRAINT "shadow_positions_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "tokens" ADD CONSTRAINT "tokens_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TABLE "wallets" ADD CONSTRAINT "wallets_project_id_projects_id_fk" FOREIGN KEY ("project_id") REFERENCES "public"."projects"("id") ON DELETE no action ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
