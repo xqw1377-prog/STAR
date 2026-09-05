@@ -354,3 +354,70 @@ export const interpretationContextParsers = pgTable('interpretation_context_pars
   factKind: text('fact_kind').notNull(),
   parserArtifactId: text('parser_artifact_id').notNull(),
 });
+
+// ── B1 Narrative Event Log (CONSENSUS-OPERATING-MODEL FROZEN-rev1) ──
+// Append-only (DB triggers reject UPDATE/DELETE). Record reality only:
+// no signal / score / gate / decision / exit is ever derived here.
+
+export const b1Events = pgTable('b1_event', {
+  id: text('id').primaryKey(),
+  eventKey: text('event_key').notNull().unique(),
+  label: text('label').notNull(),
+  attention: real('attention'),
+  observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' }).notNull(),
+  ingestedAt: timestamp('ingested_at', { withTimezone: true, mode: 'date' }).notNull(),
+  sourceId: text('source_id').notNull(),
+  payloadHash: text('payload_hash').notNull(),
+  payload: jsonb('payload').notNull(),
+});
+
+export const b1Narratives = pgTable('b1_narrative', {
+  id: text('id').primaryKey(),
+  narrativeKey: text('narrative_key').notNull().unique(),
+  label: text('label').notNull(),
+  aliases: jsonb('aliases').$type<string[]>().notNull().default([]),
+  observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' }).notNull(),
+  ingestedAt: timestamp('ingested_at', { withTimezone: true, mode: 'date' }).notNull(),
+  sourceId: text('source_id').notNull(),
+  payloadHash: text('payload_hash').notNull(),
+  payload: jsonb('payload').notNull(),
+});
+
+export const b1EventNarrativeLinks = pgTable('b1_event_narrative_link', {
+  id: text('id').primaryKey(),
+  eventKey: text('event_key').notNull(),
+  narrativeKey: text('narrative_key').notNull(),
+  relation: text('relation').notNull(),
+  observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' }).notNull(),
+  ingestedAt: timestamp('ingested_at', { withTimezone: true, mode: 'date' }).notNull(),
+  sourceId: text('source_id').notNull(),
+  payloadHash: text('payload_hash').notNull(),
+  payload: jsonb('payload').notNull(),
+});
+
+export const b1NarrativeAssets = pgTable('b1_narrative_asset', {
+  id: text('id').primaryKey(),
+  narrativeKey: text('narrative_key').notNull(),
+  assetId: text('asset_id').notNull(),
+  universe: text('universe').notNull(),
+  venue: text('venue').notNull(),
+  attributionBasis: text('attribution_basis').notNull(),
+  observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' }).notNull(),
+  ingestedAt: timestamp('ingested_at', { withTimezone: true, mode: 'date' }).notNull(),
+  sourceId: text('source_id').notNull(),
+  payloadHash: text('payload_hash').notNull(),
+  payload: jsonb('payload').notNull(),
+});
+
+export const b1Anchors = pgTable('b1_anchor', {
+  id: text('id').primaryKey(),
+  narrativeKey: text('narrative_key').notNull(),
+  anchor: text('anchor').notNull(),
+  anchoredAt: timestamp('anchored_at', { withTimezone: true, mode: 'date' }).notNull(),
+  basis: text('basis').notNull(),
+  sourceId: text('source_id').notNull(),
+  observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' }).notNull(),
+  ingestedAt: timestamp('ingested_at', { withTimezone: true, mode: 'date' }).notNull(),
+  payloadHash: text('payload_hash').notNull(),
+  payload: jsonb('payload').notNull(),
+});

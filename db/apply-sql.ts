@@ -1,5 +1,5 @@
-export const TARGET_SCHEMA_VERSION = 4;
-export const SCHEMA_LABEL = 'star-raw@4';
+export const TARGET_SCHEMA_VERSION = 5;
+export const SCHEMA_LABEL = 'star-raw@5';
 
 const VERSION_DDL = `
 CREATE TABLE IF NOT EXISTS star_schema_version (
@@ -20,7 +20,7 @@ export function stripSqlComments(sql: string): string {
     .join('\n');
 }
 
-type SqlName = 'init.sql' | 'init-d1.sql' | 'init-d1b.sql' | 'init-d1c.sql' | 'init-d1d.sql' | 'init-d1-triggers.sql';
+type SqlName = 'init.sql' | 'init-d1.sql' | 'init-d1b.sql' | 'init-d1c.sql' | 'init-d1d.sql' | 'init-d1-triggers.sql' | 'init-b1.sql';
 
 type PgliteLike = {
   query: (sql: string, params?: unknown[]) => Promise<unknown>;
@@ -92,6 +92,12 @@ export async function ensureCoreAndD1(
     await pglite.exec(stripSqlComments(await readSql('init-d1d.sql')));
     await pglite.exec(stripSqlComments(await readSql('init-d1-triggers.sql')));
     version = 4;
+    await writeVersion(pglite, version);
+  }
+  if (version < 5) {
+    // B1 Narrative Event Log (CONSENSUS-OPERATING-MODEL FROZEN-rev1). Append-only.
+    await pglite.exec(stripSqlComments(await readSql('init-b1.sql')));
+    version = 5;
     await writeVersion(pglite, version);
   }
 }
