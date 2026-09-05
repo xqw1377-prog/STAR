@@ -15,6 +15,7 @@
  */
 import { CONTRACT_VERSION, type ChainFact, type ReadonlyChainProvider, type SellSimulationPayload } from './contract';
 import {
+  holderFactSlot,
   parseBuyQuote,
   parseDexScreener,
   parseHolderAccounts,
@@ -88,7 +89,9 @@ export function createSolanaRpcProviderCore(): ReadonlyChainProvider {
   async function fetchMintInfo(mint: string) {
     const r = await rpc<any>('getAccountInfo', [mint, { encoding: 'jsonParsed', commitment: 'confirmed' }]);
     const info = r?.value?.data?.parsed?.info;
-    return { info, slot: r?.context?.slot ?? null };
+    // owner passes through raw (F1): protocol-fact identification of the
+    // owning program — never a business judgment.
+    return { info, slot: r?.context?.slot ?? null, owner: typeof r?.value?.owner === 'string' ? r.value.owner : null };
   }
 
   return {
@@ -96,8 +99,8 @@ export function createSolanaRpcProviderCore(): ReadonlyChainProvider {
     contractVersion: CONTRACT_VERSION,
 
     async mintAuthorities(mint) {
-      const { info, slot } = await fetchMintInfo(mint);
-      const payload = parseMintAccount(info);
+      const { info, slot, owner } = await fetchMintInfo(mint);
+      const payload = parseMintAccount(info, owner);
       if (!payload) throw new Error(`mint account not decodable (not an SPL mint?): ${mint}`);
       return base('mint-authority', mint, slot, payload, src);
     },
@@ -106,10 +109,11 @@ export function createSolanaRpcProviderCore(): ReadonlyChainProvider {
       // Sequential on purpose: public RPC rate-limits bursts (HTTP 429).
       const largest = await rpc<any>('getTokenLargestAccounts', [mint, { commitment: 'confirmed' }]);
       const supply = await rpc<any>('getTokenSupply', [mint, { commitment: 'confirmed' }]);
-      const slotRes = await rpc<any>('getSlot', [{ commitment: 'confirmed' }]);
       const payload = parseHolderAccounts(largest?.value, supply?.value?.amount ? { supply: supply.value.amount } : null);
       if (!payload) throw new Error(`holder distribution not computable for ${mint}`);
-      return base('holder-distribution', mint, slotRes ?? null, payload, src);
+      // F3: fact slot = the Provider's own context.slot for THIS response.
+      // A separately fetched getSlot() clock must never stand in for it.
+      return base('holder-distribution', mint, holderFactSlot(largest, supply), payload, src);
     },
 
     async liquidity(mint) {
@@ -152,9 +156,9 @@ export function createSolanaRpcProviderCore(): ReadonlyChainProvider {
 
     async programVerification(mint, programId) {
       if (!programId) {
-        return base('program-verification', mint, null, {
-          programId: '', owner: null, upgradeAuthority: null, immutable: false, verifiedBuild: null,
-        }, src);
+        // F5: no program id known → the fact is UNRESOLVED (accountParsed:
+        // false), never a defaulted "empty program" verdict.
+        return base('program-verification', mint, null, parseProgramAccounts('', null, null), src);
       }
       const r = await rpc<any>('getMultipleAccounts', [[programId], { encoding: 'base64', commitment: 'confirmed' }]);
       const prog = r?.value?.[0] ?? null;

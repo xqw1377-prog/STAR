@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  holderFactSlot,
   parseBuyQuote,
   parseDexScreener,
   parseHolderAccounts,
@@ -12,6 +13,8 @@ import { b58decode, b58encode } from './base58';
 
 describe('parseMintAccount', () => {
   it('maps jsonParsed mint info onto the contract payload', () => {
+    // G1-B F1: with no owner passed, an absent extensions field is NOT
+    // proof of "none" — it stays null (UNKNOWN downstream).
     const payload = parseMintAccount({ decimals: 5, supply: '76', mintAuthority: 'SomeAuthority1111111111111111111111111111', freezeAuthority: null });
     expect(payload).toEqual({
       decimals: 5,
@@ -21,7 +24,7 @@ describe('parseMintAccount', () => {
       transferHook: null,
       permanentDelegate: null,
       feeConfig: null,
-      token2022Extensions: [],
+      token2022Extensions: null,
     });
   });
   it('extracts Token-2022 transfer hook from extensions', () => {
@@ -135,5 +138,58 @@ describe('standardSellSize', () => {
   });
   it('is 0 for zero supply', () => {
     expect(standardSellSize('0')).toBe('0');
+  });
+});
+
+// ── G1-B remediation acceptance (F1/F3/F5, principal-approved 2026-09-05) ──
+
+describe('G1-B F1: extensions missing must not collapse to []', () => {
+  const V1 = 'TokenkegQfeZyiNwAJbNbGKPBXCWu2f9kRxMmNei2';
+  const T22 = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnB97CXngPv1Gk';
+  const base = { decimals: 6, supply: '1000', mintAuthority: null, freezeAuthority: null };
+
+  it('field absent + no owner → null (UNKNOWN downstream, never PASS)', () => {
+    const payload = parseMintAccount({ ...base }, null)!;
+    expect(payload.token2022Extensions).toBeNull();
+  });
+
+  it('field absent + Token-2022 owner → null (absence is not proof of none)', () => {
+    const payload = parseMintAccount({ ...base }, T22)!;
+    expect(payload.token2022Extensions).toBeNull();
+  });
+
+  it('field absent + SPL Token v1 owner → [] (protocol fact: v1 has no extensions)', () => {
+    const payload = parseMintAccount({ ...base }, V1)!;
+    expect(payload.token2022Extensions).toEqual([]);
+  });
+
+  it('field positively reported → names (regardless of owner)', () => {
+    const payload = parseMintAccount({ ...base, extensions: [{ extension: 'transferHook' }] }, T22)!;
+    expect(payload.token2022Extensions).toEqual(['transferHook']);
+  });
+});
+
+describe('G1-B F5: structurally missing mint fields reject the whole fact', () => {
+  it('missing decimals → null (no ?? 0 default)', () => {
+    expect(parseMintAccount({ supply: '1000' })).toBeNull();
+  });
+  it('missing supply → null (no ?? \'0\' default)', () => {
+    expect(parseMintAccount({ decimals: 6 })).toBeNull();
+  });
+  it('provider-given zero is preserved as zero (0 given ≠ 0 defaulted)', () => {
+    const payload = parseMintAccount({ decimals: 6, supply: '0' })!;
+    expect(payload.supply).toBe('0');
+  });
+});
+
+describe('G1-B F3: fact slot comes from the response context, never a separate clock', () => {
+  it('largest.context.slot wins', () => {
+    expect(holderFactSlot({ context: { slot: 120 } }, { context: { slot: 119 } })).toBe(120);
+  });
+  it('falls back to supply context.slot', () => {
+    expect(holderFactSlot({ context: {} }, { context: { slot: 119 } })).toBe(119);
+  });
+  it('both absent → null (missing stays missing)', () => {
+    expect(holderFactSlot({}, {})).toBeNull();
   });
 });

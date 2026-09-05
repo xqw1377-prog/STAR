@@ -2,6 +2,18 @@
 /**
  * Pure parsers turning raw read-only API responses into contract payloads.
  * No I/O here so every branch is unit-testable; providers stay thin transports.
+ *
+ * G1-B AUDIT SCOPE (2026-09-05, Gate #1 remediation F1/F3/F5/F6):
+ *   IN SCOPE  — Helius JSON-RPC five methods (getAccountInfo /
+ *               getMultipleAccounts / getTokenSupply / getTokenLargestAccounts /
+ *               getSlot): raw values pass through, missing stays missing,
+ *               undecodable accounts are rejected (fact = null → UNKNOWN).
+ *   OUT OF SCOPE — DexScreener + Jupiter parsers below remain under
+ *               LEGAL_REVIEW in the source registry; they are NOT covered by
+ *               this remediation batch and must not be "fixed" alongside it.
+ *
+ * Governance rules enforced here (FROZEN-rev1 / Gate #1 anti-patterns):
+ *   no business verdicts, no default fills, no private translation tables.
  */
 import { b58encode } from './base58';
 import type {
@@ -12,34 +24,56 @@ import type {
   SellSimulationPayload,
 } from './contract';
 
-function tokenControls(info: any): Pick<
+/** Protocol layout facts (not business judgments): SPL program ids. */
+const SPL_TOKEN_V1_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPBXCWu2f9kRxMmNei2';
+
+function tokenControls(info: any, owner: string | null): Pick<
   MintAuthorityPayload,
   'transferHook' | 'permanentDelegate' | 'feeConfig' | 'token2022Extensions'
 > {
-  const raw = Array.isArray(info.extensions) ? info.extensions : [];
-  const names = raw.map((e: any) => String(e?.extension ?? e)).filter(Boolean);
+  // F1: a missing extensions field stays missing. Only a POSITIVE report
+  // (array present) resolves to names, and only the protocol fact
+  // "owner == SPL Token v1" (v1 has no extension mechanism) can prove an
+  // empty set. Token-2022 with the field absent → null → gate UNKNOWN.
+  const reported = Array.isArray(info.extensions) ? info.extensions : null;
+  const names = reported ? reported.map((e: any) => String(e?.extension ?? e)).filter(Boolean) : null;
+  let token2022Extensions: string[] | null = null;
+  if (names) token2022Extensions = names;
+  else if (owner === SPL_TOKEN_V1_PROGRAM) token2022Extensions = [];
+
   let transferHook = info.transferHook ? String(info.transferHook) : null;
   let permanentDelegate = info.permanentDelegate ? String(info.permanentDelegate) : null;
   let feeConfig = info.feeConfig ? String(info.feeConfig) : null;
-  for (const e of raw) {
+  for (const e of reported ?? []) {
     const name = String(e?.extension ?? '');
     if (name === 'transferHook') transferHook = String(e.state?.programId ?? transferHook ?? 'present');
     if (name === 'permanentDelegate') permanentDelegate = String(e.state?.delegate ?? permanentDelegate ?? 'present');
     if (name === 'transferFeeConfig' || name === 'transferFeeAmount') feeConfig = feeConfig ?? 'present';
   }
-  return { transferHook, permanentDelegate, feeConfig, token2022Extensions: names };
+  return { transferHook, permanentDelegate, feeConfig, token2022Extensions };
 }
 
 /** SPL Token program "spl-token" jsonParsed `info` object from getAccountInfo. */
-export function parseMintAccount(info: any): MintAuthorityPayload | null {
+export function parseMintAccount(info: any, owner: string | null = null): MintAuthorityPayload | null {
   if (!info || typeof info !== 'object') return null;
+  // F5: structurally required mint fields are either present or the account
+  // is undecodable — the whole fact is rejected (never defaulted to 0/'0').
+  // Provider gave 0 → recorded 0; provider gave nothing → no fact → UNKNOWN.
+  if (typeof info.decimals !== 'number') return null;
+  if (typeof info.supply !== 'string' && typeof info.supply !== 'number') return null;
   return {
-    decimals: Number(info.decimals ?? 0),
-    supply: String(info.supply ?? '0'),
+    decimals: Number(info.decimals),
+    supply: String(info.supply),
     mintAuthority: info.mintAuthority ? String(info.mintAuthority) : null,
     freezeAuthority: info.freezeAuthority ? String(info.freezeAuthority) : null,
-    ...tokenControls(info),
+    ...tokenControls(info, owner),
   };
+}
+
+/** F3: the fact slot is the Provider's own context.slot for THIS data — a
+ * separately fetched clock slot must never masquerade as data freshness. */
+export function holderFactSlot(largestRes: any, supplyRes: any): number | null {
+  return largestRes?.context?.slot ?? supplyRes?.context?.slot ?? null;
 }
 
 /** getTokenLargestAccounts value[] + getTokenSupply parsed info. */
