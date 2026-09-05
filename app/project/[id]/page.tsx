@@ -13,8 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { shortHash } from '@/lib/data/lineage';
 import { QueryError } from '@/components/query-error';
 import { CHECK_ZH, GATE_ZH, INELIGIBLE_ZH, LIFECYCLE_ZH, LINEAGE_ZH, STATUS_ZH, zh, zhReason, zhSource } from '@/lib/ui/zh';
+import { observePage } from '@/app/observe-shell';
 
-export default function ProjectAudit() {
+function ProjectAudit() {
   const { id } = useParams<{ id: string }>();
   const db = useDb();
   const [data, setData] = useState<Awaited<ReturnType<typeof getProjectDetail>> | null>(null);
@@ -220,3 +221,5 @@ export default function ProjectAudit() {
     </main>
   );
 }
+
+export default observePage(ProjectAudit);

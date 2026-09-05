@@ -23,6 +23,7 @@ const nextConfig = {
     // new URL(..., import.meta.url) asset resolution). The browser idb path
     // is severed from SSR via app/providers-ssr.tsx (dynamic, ssr:false).
     serverComponentsExternalPackages: ['@electric-sql/pglite'],
+    instrumentationHook: true,
   },
 };
 

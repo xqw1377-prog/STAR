@@ -1,4 +1,4 @@
-import type { NewPoolBirth } from './types';
+import type { NewPoolBirth, PoolBookSnapshot } from './types';
 
 /**
  * Synthetic discovery set for M1-BUILD tests.
@@ -37,5 +37,38 @@ export const FIXTURE_NEW_POOLS: Array<Omit<NewPoolBirth, 'receiptId'>> = [
     effectiveAt: '2026-09-04T00:02:00.000Z',
     slot: 1121,
     source: 'fixture',
+  },
+];
+
+export const FIXTURE_BOOKS: PoolBookSnapshot[] = [
+  {
+    mint: 'PumpMint111111111111111111111111111111111',
+    poolAddress: 'PumpPool11111111111111111111111111111111',
+    quoteReserveSol: 12,
+    baseReserveRaw: '1000000000',
+    slot: 1001,
+    observedAt: '2026-09-04T00:00:00.000Z',
+    source: 'fixture',
+    receiptId: 'fixture-book-pump',
+  },
+  {
+    mint: 'AmmMint1111111111111111111111111111111111',
+    poolAddress: 'AmmPool111111111111111111111111111111111',
+    quoteReserveSol: 40,
+    baseReserveRaw: '2000000000',
+    slot: 1061,
+    observedAt: '2026-09-04T00:01:00.000Z',
+    source: 'fixture',
+    receiptId: 'fixture-book-amm',
+  },
+  {
+    mint: 'CpmmMint111111111111111111111111111111111',
+    poolAddress: 'CpmmPool11111111111111111111111111111111',
+    quoteReserveSol: 9,
+    baseReserveRaw: '800000000',
+    slot: 1121,
+    observedAt: '2026-09-04T00:02:00.000Z',
+    source: 'fixture',
+    receiptId: 'fixture-book-cpmm',
   },
 ];

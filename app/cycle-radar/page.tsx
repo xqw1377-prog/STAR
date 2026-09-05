@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { QueryError } from '@/components/query-error';
 import { LIFECYCLE_ZH, READINESS_ZH, zh } from '@/lib/ui/zh';
+import { observePage } from '@/app/observe-shell';
 
-export default function CycleRadar() {
+function CycleRadar() {
   const db = useDb();
   const [narratives, setNarratives] = useState<Awaited<ReturnType<typeof getNarratives>>>([]);
   const [projects, setProjects] = useState<Awaited<ReturnType<typeof getProjectsWithReadiness>>>([]);
@@ -64,3 +65,5 @@ export default function CycleRadar() {
     </main>
   );
 }
+
+export default observePage(CycleRadar);

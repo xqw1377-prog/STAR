@@ -1,169 +1,177 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useDb } from '@/app/providers';
-import { getProjectsWithReadiness, getNarratives, getDeskHealth } from '@/lib/queries';
-import { formatRate } from '@/lib/data/health';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
 import { QueryError } from '@/components/query-error';
-import { DEGRADED_ZH, GATE_ZH, HEALTH_RATE_ZH, LIFECYCLE_ZH, STATUS_ZH, zh } from '@/lib/ui/zh';
+import { SNIPE_V0 } from '@/lib/alpha/strategy/snipe-v0';
 
-export default function StarDesk() {
-  const db = useDb();
-  const [projects, setProjects] = useState<Awaited<ReturnType<typeof getProjectsWithReadiness>>>([]);
-  const [narratives, setNarratives] = useState<Awaited<ReturnType<typeof getNarratives>>>([]);
-  const [health, setHealth] = useState<Awaited<ReturnType<typeof getDeskHealth>> | null>(null);
+interface SnipeTrade {
+  mint: string;
+  side: 'BUY' | 'SELL';
+  skip?: string;
+  exitReason?: string;
+  label?: string;
+}
+
+interface SnipeState {
+  strategy: string;
+  capability: string;
+  mode: string;
+  broadcast: boolean;
+  tick: number;
+  decisionSlot: number;
+  lastTickAt: string | null;
+  money: string;
+  cashUsdc: number;
+  navUsdc: number;
+  open: Array<{ mint: string; entrySlot: number; notionalUsdc: number }>;
+  trades: SnipeTrade[];
+}
+
+export default function SnipeDesk() {
+  const [state, setState] = useState<SnipeState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!db) return;
-    setError(null);
-    Promise.all([
-      getProjectsWithReadiness(db).then(setProjects),
-      getNarratives(db).then(setNarratives),
-      getDeskHealth(db).then(setHealth),
-    ]).catch((e) => setError(e instanceof Error ? e.message : '加载失败'));
-  }, [db]);
+    let cancelled = false;
+    const pull = () => {
+      fetch('/api/snipe', { cache: 'no-store' })
+        .then((r) => {
+          if (!r.ok) throw new Error(`snipe ${r.status}`);
+          return r.json();
+        })
+        .then((body: SnipeState) => {
+          if (!cancelled) {
+            setError(null);
+            setState(body);
+          }
+        })
+        .catch((e) => {
+          if (!cancelled) setError(e instanceof Error ? e.message : '阻击循环失败');
+        });
+    };
+    pull();
+    const id = window.setInterval(pull, 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
-  const passList = projects
-    .filter((p) => p.evaluation.readiness === 'READY' && p.score)
-    .sort((a, b) => (b.score?.total || 0) - (a.score?.total || 0));
-  const riskList = projects.filter((p) => p.evaluation.readiness !== 'READY');
+  const fills = (state?.trades ?? []).filter((t) => !t.skip);
 
   return (
     <main className="p-6 space-y-6 max-w-6xl mx-auto">
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">研究台</h1>
-        <p className="text-sm text-muted-foreground">只读研究台 · 今日候选、风险队列与叙事轮动</p>
+        <h1 className="text-2xl font-bold tracking-tight">阻击台</h1>
+        <p className="text-sm text-muted-foreground">
+          一级链上价值 meme · 策略自动开平仓 · 六门禁不参与入场
+        </p>
       </div>
       {error ? <QueryError message={error} /> : null}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">活跃叙事</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">策略</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{narratives.length}</div>
-            <div className="text-xs text-muted-foreground">夹具中的叙事簇，不是主网发现</div>
+            <div className="font-mono text-sm font-bold">{state?.strategy ?? SNIPE_V0.id}</div>
+            <div className="text-xs text-muted-foreground">版本冻结后改规则 = 新实验</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">可决策项目</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">执行模式</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{passList.length}</div>
-            <div className="text-xs text-muted-foreground">夹具上六门禁全通过，不是可成交机会</div>
+            <div className="text-2xl font-bold">{state?.mode ?? 'DRY_RUN'}</div>
+            <div className="text-xs text-muted-foreground">
+              {state?.broadcast ? '广播已接线' : '无广播 · 无钱包模块'}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">风险队列</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">组合净值</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{riskList.length}</div>
-            <div className="text-xs text-muted-foreground">已阻断 / 需补研 / 已过窗口</div>
+            <div className="text-2xl font-bold">{state ? state.navUsdc.toFixed(0) : '—'}</div>
+            <div className="text-xs text-muted-foreground">现金 {state ? state.cashUsdc.toFixed(0) : '—'} USDC · 夹具记账</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">持仓</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{state?.open.length ?? 0}</div>
+            <div className="text-xs text-muted-foreground">上限 {SNIPE_V0.maxPositions} · 单名 0.5% NAV</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">循环</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{state?.tick ?? 0}</div>
+            <div className="text-xs text-muted-foreground">slot {state?.decisionSlot ?? '—'} · 自动推进</div>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>数据采集健康</CardTitle>
+          <CardTitle>策略规则 snipe-value-meme@v0</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            观察能力投影 · 六互斥终态 + 响应可用率 + 未决率 · 不写入就绪度
-          </p>
-          {health ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              <div>
-                <div className="text-muted-foreground text-xs">{HEALTH_RATE_ZH.success}</div>
-                <div className="font-medium">{formatRate(health.overall.success_rate)}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground text-xs">{HEALTH_RATE_ZH.partial}</div>
-                <div className="font-medium">{formatRate(health.overall.partial_rate)}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground text-xs">{HEALTH_RATE_ZH.source_error}</div>
-                <div className="font-medium">{formatRate(health.overall.source_error_rate)}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground text-xs">{HEALTH_RATE_ZH.transport_error}</div>
-                <div className="font-medium">{formatRate(health.overall.transport_error_rate)}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground text-xs">{HEALTH_RATE_ZH.timeout}</div>
-                <div className="font-medium">{formatRate(health.overall.timeout_rate)}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground text-xs">{HEALTH_RATE_ZH.aborted}</div>
-                <div className="font-medium">{formatRate(health.overall.aborted_rate)}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground text-xs">{HEALTH_RATE_ZH.response_availability}</div>
-                <div className="font-medium">{formatRate(health.overall.response_availability)}</div>
-              </div>
-              <div>
-                <div className="text-muted-foreground text-xs">{HEALTH_RATE_ZH.unresolved}</div>
-                <div className="font-medium">{formatRate(health.overall.unresolved_rate)}</div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-sm text-muted-foreground">健康投影未加载</div>
-          )}
-          {health && (
-            <div className="text-xs text-muted-foreground">
-              1 小时窗终态 {health.overall.terminal_n} · 启动 {health.overall.start_n} ·
-              完整度 {health.overall.completeness == null ? '无计划' : `${Math.round(health.overall.completeness * 100)}%`} ·
-              降级 {health.overall.degraded_reason.map((r) => zh(DEGRADED_ZH, r)).join('、')}
-            </div>
-          )}
+        <CardContent className="text-sm space-y-1 text-muted-foreground">
+          <p>进场：pump.fun bonding-curve / Raydium AMM v4 / CPMM · 报价 SOL 或 USDC · 首次储备 ≥ 8 SOL 等值 · 点时簿记存在 · 同 mint 一仓</p>
+          <p>出场：退市不可退出记 0 · 储备 &lt; 1 SOL · 持有 ≥ 1800 slot</p>
+          <p>赚钱能力：{state?.money ?? 'NO-EVIDENCE'} · 夹具自动循环不是样本外证据</p>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>研究队列</CardTitle>
+            <CardTitle>当前仓位</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {passList.map(p => (
-              <Link key={p.id} href={`/project/${p.id}`} className="block border rounded-lg p-3 hover:bg-muted transition">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold">{p.name} <span className="text-muted-foreground font-normal">({p.symbol})</span></div>
-                    <div className="text-xs text-muted-foreground">{p.narrativeName}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold">{p.score ? Math.round(p.score.total) : '—'}</div>
-                    <Badge variant={p.lifecycle === 'CROWDING' ? 'destructive' : 'secondary'}>{zh(LIFECYCLE_ZH, p.lifecycle)}</Badge>
-                  </div>
+            {(state?.open ?? []).length === 0 ? (
+              <p className="text-sm text-muted-foreground">空仓 · 等待下一次符合策略的出生</p>
+            ) : (
+              state?.open.map((p) => (
+                <div key={p.mint} className="border rounded-lg p-3 font-mono text-xs">
+                  <div className="font-semibold break-all">{p.mint}</div>
+                  <div className="text-muted-foreground mt-1">入场 slot {p.entrySlot} · {p.notionalUsdc} USDC</div>
                 </div>
-              </Link>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>风险队列</CardTitle>
+            <CardTitle>自动成交 / 退出</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {riskList.map(p => (
-              <Link key={p.id} href={`/project/${p.id}`} className="block border rounded-lg p-3 hover:bg-muted transition">
-                <div className="font-semibold">{p.name} <span className="text-muted-foreground font-normal">({p.symbol})</span></div>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {p.gates.filter(g => g.status !== 'PASS').map(g => (
-                    <Badge key={g.category} variant={g.status === 'FAIL' ? 'destructive' : 'outline'}>{zh(GATE_ZH, g.category)}：{zh(STATUS_ZH, g.status)}</Badge>
-                  ))}
+            {fills.length === 0 ? (
+              <p className="text-sm text-muted-foreground">本轮尚未产生成交</p>
+            ) : (
+              fills.slice(-12).reverse().map((t, i) => (
+                <div key={`${t.mint}-${t.side}-${i}`} className="border rounded-lg p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-mono text-xs break-all">{t.mint}</div>
+                    <Badge variant={t.side === 'BUY' ? 'secondary' : 'destructive'}>{t.side}</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {t.label ?? '—'}
+                    {t.exitReason ? ` · ${t.exitReason}` : ''}
+                  </div>
                 </div>
-              </Link>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

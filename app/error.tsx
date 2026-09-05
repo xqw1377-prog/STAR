@@ -9,7 +9,7 @@ export default function Error({
   return (
     <main className="mx-auto max-w-6xl space-y-3 p-6">
       <h1 className="text-xl font-bold tracking-tight">页面出错</h1>
-      <p className="text-sm text-muted-foreground">研究台未能完成这次渲染。没有写入任何数据。</p>
+      <p className="text-sm text-muted-foreground">阻击台未能完成这次渲染。没有写入任何数据。</p>
       <button
         type="button"
         onClick={reset}

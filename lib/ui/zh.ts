@@ -1,15 +1,15 @@
 /** Display-only Chinese labels. Domain keys stay kebab / enum. */
 
-export const BOUNDARY_ZH = '合成夹具数据 · 只读 · 无钱包 · 无交易';
-export const BOUNDARY_EN = 'SYNTHETIC FIXTURE DATA · READ-ONLY · NO WALLET · NO TRADING';
+export const BOUNDARY_ZH = '夹具自动阻击 · DRY_RUN · 无广播';
+export const BOUNDARY_EN = 'FIXTURE AUTO-SNIPE · DRY_RUN · NO BROADCAST';
 
 export const NAV_ZH = [
-  { href: '/', label: '研究台' },
-  { href: '/cycle-radar', label: '周期雷达' },
-  { href: '/narrative-map', label: '叙事地图' },
-  { href: '/project/proj-neural', label: '项目审计' },
-  { href: '/risk-center', label: '风险中心' },
-  { href: '/replay-lab', label: '回放实验室' },
+  { href: '/', label: '阻击台' },
+  { href: '/cycle-radar', label: '观察·周期' },
+  { href: '/narrative-map', label: '观察·叙事' },
+  { href: '/project/proj-neural', label: '观察·审计' },
+  { href: '/risk-center', label: '观察·风险' },
+  { href: '/replay-lab', label: '观察·回放' },
 ] as const;
 
 export const GATE_ZH: Record<string, string> = {

@@ -4,7 +4,6 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import "./globals.css";
 import { cn } from "@/lib/utils";
-import DbProvider from "@/app/providers-ssr";
 import { BOUNDARY_ZH, BOUNDARY_EN, NAV_ZH } from "@/lib/ui/zh";
 
 const geistSans = localFont({
@@ -19,8 +18,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "STAR 研究台",
-  description: "只读 Solana 机会情报与硬安全门禁",
+  title: "STAR 阻击台",
+  description: "一级链上价值 meme 自动阻击 · DRY_RUN",
 };
 
 export default function RootLayout({
@@ -53,7 +52,7 @@ export default function RootLayout({
               </span>
           </div>
         </header>
-        <DbProvider>{children}</DbProvider>
+        {children}
       </body>
     </html>
   );

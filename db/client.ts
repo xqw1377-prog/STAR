@@ -1,6 +1,5 @@
 import { drizzle } from 'drizzle-orm/pglite';
-import { access, mkdir, constants } from 'fs/promises';
-import { readFile } from 'fs/promises';
+import { access, mkdir, constants, readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { createRequire } from 'module';
 import * as schema from './schema';

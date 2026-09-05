@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { QueryError } from '@/components/query-error';
 import { LIFECYCLE_ZH, zh } from '@/lib/ui/zh';
+import { observePage } from '@/app/observe-shell';
 
-export default function NarrativeMap() {
+function NarrativeMap() {
   const db = useDb();
   const [narratives, setNarratives] = useState<Awaited<ReturnType<typeof getNarratives>>>([]);
   const [error, setError] = useState<string | null>(null);
@@ -75,3 +76,5 @@ export default function NarrativeMap() {
     </main>
   );
 }
+
+export default observePage(NarrativeMap);

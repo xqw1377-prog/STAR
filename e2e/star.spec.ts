@@ -19,19 +19,19 @@ test.describe('six-page render + safety labels', () => {
       // 语义断言：稳定 testid + 双语关键语，不依赖营销文案措辞
       const banner = page.getByTestId('synthetic-fixture-banner');
       await expect(banner).toBeVisible();
-      await expect(banner).toContainText('合成夹具数据');
-      await expect(banner).toContainText('无钱包');
-      await expect(banner).toContainText('SYNTHETIC FIXTURE DATA');
-      await expect(banner).toContainText('NO WALLET');
+      await expect(banner).toContainText('夹具自动阻击');
+      await expect(banner).toContainText('无广播');
+      await expect(banner).toContainText('FIXTURE AUTO-SNIPE');
+      await expect(banner).toContainText('NO BROADCAST');
     });
   }
 
-  test('star desk shows the decision queue after hydration', async ({ page }) => {
+  test('snipe desk auto-runs the fixture cycle without the research db', async ({ page }) => {
     await page.goto('/');
-    // Client PGlite seeds the timeline fixture; the desk lists all projects
-    // in either the research queue or the risk queue.
-    await expect(page.getByText('Neural Swarm', { exact: false }).first()).toBeVisible({ timeout: 30000 });
-    await expect(page.getByText('SafeMoon Yield', { exact: false }).first()).toBeVisible();
+    await expect(page.getByText('阻击台').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('snipe-value-meme@v0').first()).toBeVisible();
+    await expect(page.getByText('DRY_RUN').first()).toBeVisible();
+    await expect(page.getByText('组合净值').first()).toBeVisible();
   });
 
   test('replay lab evaluates a point-in-time cutoff', async ({ page }) => {
@@ -54,7 +54,7 @@ test.describe('six-page render + safety labels', () => {
     // /init.sql to create tables; aborting it forces initialization failure.
     await page.route('**/init.sql', (route) => route.abort());
 
-    await page.goto('/');
+    await page.goto('/risk-center');
 
     // LOADING TERMINATES + ERROR MESSAGE VISIBLE
     const alert = page.getByTestId('data-unavailable');
@@ -64,9 +64,8 @@ test.describe('six-page render + safety labels', () => {
     await expect(page.getByText('STAR 未加载任何项目结论、门禁状态或机会分数。')).toBeVisible();
     await expect(page.getByText('STAR 初始化中')).toHaveCount(0);
 
-    // READ-ONLY BOUNDARY still visible (server-rendered header)
     await expect(page.getByTestId('synthetic-fixture-banner')).toBeVisible();
-    await expect(page.locator('header')).toContainText('无钱包');
+    await expect(page.locator('header')).toContainText('无广播');
 
     // GATE STATUS / OPPORTUNITY SCORE / STALE PROJECT DATA = ZERO
     const body = await page.locator('body').innerText();
@@ -78,8 +77,31 @@ test.describe('six-page render + safety labels', () => {
     // app recovers to the normal synthetic queue (no stale state).
     await page.unroute('**/init.sql');
     await page.getByRole('button', { name: '重新加载' }).click();
-    await expect(page.getByText('Neural Swarm', { exact: false }).first()).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText('风险中心').first()).toBeVisible({ timeout: 30000 });
   });
+});
+
+test('capability and snipe APIs stay aligned', async ({ request }) => {
+  const cap = await request.get('/api/capability');
+  expect(cap.status()).toBe(200);
+  const ledger = await cap.json();
+  expect(ledger.id).toBe('star-capability@3');
+  expect(ledger.purpose).toBe('MEME-SNIPE-AUTO');
+  expect(ledger.money).toBe('NO-EVIDENCE');
+  expect(ledger.runtime.autoTrade).toBe(true);
+  expect(ledger.runtime.snipeCycleWired).toBe(true);
+  expect(ledger.runtime.deskRequiresResearchDb).toBe(false);
+  expect(ledger.runtime.strategy).toBe('snipe-value-meme@v0');
+  expect(ledger.runtime.executionMode).toBe('DRY_RUN');
+
+  const snipe = await request.get('/api/snipe');
+  expect(snipe.status()).toBe(200);
+  const body = await snipe.json();
+  expect(body.capability).toBe(ledger.id);
+  expect(body.purpose).toBe(ledger.purpose);
+  expect(body.strategy).toBe(ledger.runtime.strategy);
+  expect(body.mode).toBe('DRY_RUN');
+  expect(body.money).toBe('NO-EVIDENCE');
 });
 
 test('S0/health: liveness probe — 200, build identity, no secrets, method-limited, prod CSP clean', async ({ request }) => {

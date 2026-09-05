@@ -7,11 +7,16 @@ import { maxNameNotionalUsdc, PORTFOLIO_POLICY_V0 } from './policy';
 describe('capability ledger', () => {
   it('does not claim money ability or a wired wallet', () => {
     expect(CAPABILITY.money).toBe('NO-EVIDENCE');
+    expect(CAPABILITY.purpose).toBe('MEME-SNIPE-AUTO');
+    expect(CAPABILITY.runtime.autoTrade).toBe(true);
+    expect(CAPABILITY.runtime.executionDefault).toBe('DRY_RUN');
     expect(CAPABILITY.runtime.walletModule).toBe(false);
     expect(CAPABILITY.runtime.broadcast).toBe(false);
     expect(CAPABILITY.runtime.recorderWiredToApi).toBe(false);
     expect(CAPABILITY.runtime.storesCoupled).toBe(false);
     expect(CAPABILITY.runtime.refreshCollectsChain).toBe(false);
+    expect(CAPABILITY.runtime.snipeCycleWired).toBe(true);
+    expect(CAPABILITY.runtime.deskRequiresResearchDb).toBe(false);
   });
 });
 

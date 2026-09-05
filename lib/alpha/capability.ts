@@ -1,26 +1,23 @@
 /**
- * Single runtime ledger for what STAR can do *in this tree*.
- * Paper policy (worksheets) and runtime code are listed separately so
- * README / contract / UI cannot claim a capability the binary does not have.
+ * Single live ledger. Direction: automated on-chain meme snipe.
+ * Paper vs runtime stay separate. Tests/pages ≠ Alpha.
  */
-export const CAPABILITY_LEDGER_ID = 'star-capability@1' as const;
+import { SNIPE_STRATEGY_ID } from '@/lib/alpha/strategy/snipe-v0';
+import { resolveExecutionMode } from '@/lib/alpha/execution/mode';
+
+export const CAPABILITY_LEDGER_ID = 'star-capability@3' as const;
 
 export const CAPABILITY = {
   id: CAPABILITY_LEDGER_ID,
+  purpose: 'MEME-SNIPE-AUTO',
   money: 'NO-EVIDENCE',
-  research: 'PARTIAL',
+  research: 'SHELL-ONLY',
   paper: {
-    m0Objective: 'FROZEN',
+    m0Objective: 'SUPERSEDED-BY-DIRECTION',
     m0Measurement: 'FROZEN-rev1',
     m0Boundary: 'FROZEN-rev2',
-    m1Build: 'IN-PROGRESS',
-    m1Evidence: 'NOT-STARTED',
-    m2: 'NOT-STARTED',
-    m3: 'DENIED',
-    m4: 'DENIED',
-    m5Build: 'AUTHORIZED-PAPER',
+    m5Build: 'IN-PROGRESS',
     m5Evidence: 'DENIED',
-    m6: 'DENIED',
     fundPolicy: 'MICRO-LIVE-CANDIDATE',
     fundCapUsdc: 1000,
     p1: 'NO-GO',
@@ -28,28 +25,32 @@ export const CAPABILITY = {
   runtime: {
     enabledSources: ['synthetic-fixtures'] as const,
     solanaRpc: 'BLOCKED',
+    strategy: SNIPE_STRATEGY_ID,
+    autoTrade: true,
+    executionDefault: 'DRY_RUN',
+    snipeCycleWired: true,
+    snipeLoop: 'process-interval',
+    deskRequiresResearchDb: false,
     walletModule: false,
     broadcast: false,
-    autoTrade: false,
     recorderWiredToApi: false,
-    recorderWiredToUi: false,
+    refreshCollectsChain: false,
     browserDb: 'idb://star',
     serverDb: '.pglite',
     storesCoupled: false,
-    refreshCollectsChain: false,
-    decisionIntentExecutable: false,
-    portfolioNavComputed: false,
   },
 } as const;
-
-export type CapabilityLedger = typeof CAPABILITY;
 
 export function capabilityPublic() {
   return {
     id: CAPABILITY.id,
+    purpose: CAPABILITY.purpose,
     money: CAPABILITY.money,
     research: CAPABILITY.research,
     paper: CAPABILITY.paper,
-    runtime: CAPABILITY.runtime,
+    runtime: {
+      ...CAPABILITY.runtime,
+      executionMode: resolveExecutionMode(),
+    },
   };
 }

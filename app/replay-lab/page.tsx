@@ -14,6 +14,7 @@ import { shortHash } from '@/lib/data/lineage';
 import { ReplayError } from '@/lib/data/resolve';
 import { QueryError } from '@/components/query-error';
 import { CHECK_ZH, GATE_ZH, INELIGIBLE_ZH, LINEAGE_ZH, READINESS_ZH, REPLAY_MODE_ZH, STATUS_ZH, zh, zhReason, zhSource } from '@/lib/ui/zh';
+import { observePage } from '@/app/observe-shell';
 
 const STATUS_COLOR: Record<string, string> = {
   PASS: 'text-green-600',
@@ -21,7 +22,7 @@ const STATUS_COLOR: Record<string, string> = {
   UNKNOWN: 'text-amber-600',
 };
 
-export default function ReplayLab() {
+function ReplayLab() {
   const db = useDb();
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
   const [selected, setSelected] = useState<string>('');
@@ -212,3 +213,5 @@ export default function ReplayLab() {
     </main>
   );
 }
+
+export default observePage(ReplayLab);

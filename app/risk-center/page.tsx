@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { QueryError } from '@/components/query-error';
 import { GATE_ZH, INELIGIBLE_ZH, READINESS_ZH, STATUS_ZH, zh, zhReason } from '@/lib/ui/zh';
+import { observePage } from '@/app/observe-shell';
 
-export default function RiskCenter() {
+function RiskCenter() {
   const db = useDb();
   const [projects, setProjects] = useState<Awaited<ReturnType<typeof getProjectsWithReadiness>>>([]);
   const [error, setError] = useState<string | null>(null);
@@ -85,3 +86,5 @@ export default function RiskCenter() {
     </main>
   );
 }
+
+export default observePage(RiskCenter);

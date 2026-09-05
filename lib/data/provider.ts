@@ -33,7 +33,7 @@ export function providerStatus() {
     contractVersion: CONTRACT_VERSION,
     registry: SOURCE_REGISTRY,
     rpcConfigured: Boolean(process.env.STAR_RPC_URL),
-    readOnly: true,
+    readOnly: !CAPABILITY.runtime.broadcast,
     wallet: CAPABILITY.runtime.walletModule,
     trading: CAPABILITY.runtime.autoTrade,
     capability: CAPABILITY.id,
