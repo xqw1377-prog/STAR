@@ -19,7 +19,7 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "STAR 阻击台",
-  description: "一级链上价值 meme 自动阻击 · DRY_RUN",
+  description: "新叙事早期资产阻击 · Event → Narrative → Asset · DRY_RUN",
 };
 
 export default function RootLayout({

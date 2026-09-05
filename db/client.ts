@@ -17,26 +17,31 @@ function loadPglite(): typeof import('@electric-sql/pglite').PGlite {
   return createRequire(import.meta.url)(pkgPath).PGlite;
 }
 
-const DATA_DIR = resolve(process.env.PGLITE_DATA_DIR || './.pglite');
-
+let currentDataDir: string | null = null;
 let ready: Promise<any> | null = null;
 let pgliteHandle: unknown = null;
+
+function dataDir(): string {
+  return resolve(process.env.PGLITE_DATA_DIR || './.pglite');
+}
 
 /**
  * Filesystem PGlite store for server routes / tests. Schema is applied from
  * public/init.sql (the same DDL the browser idb store uses), sidestepping
  * the drizzle migrator whose journal reader breaks under Next's bundler.
  */
-async function assertDataDirWritable(): Promise<void> {
-  await mkdir(DATA_DIR, { recursive: true });
-  await access(DATA_DIR, constants.W_OK);
+async function assertDataDirWritable(dir: string): Promise<void> {
+  await mkdir(dir, { recursive: true });
+  await access(dir, constants.W_OK);
 }
 
 async function build() {
-  await assertDataDirWritable();
+  const dir = dataDir();
+  await assertDataDirWritable(dir);
   const PGlite = loadPglite();
-  const pglite = new PGlite(DATA_DIR);
+  const pglite = new PGlite(dir);
   pgliteHandle = pglite;
+  currentDataDir = dir;
   await pglite.waitReady;
   await ensureCoreAndD1(pglite, (name) => readFile(join(process.cwd(), 'public', name), 'utf8'));
   return drizzle(pglite, { schema });
@@ -49,6 +54,9 @@ export async function getPglite() {
 }
 
 export async function getDb() {
-  if (!ready) ready = build();
+  const dir = dataDir();
+  if (!ready || dir !== currentDataDir) {
+    ready = build();
+  }
   return ready;
 }

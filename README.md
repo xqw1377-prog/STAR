@@ -1,7 +1,7 @@
 # STAR — Signal · Truth · Alpha · Risk
 
-一级链上价值 meme 的自动阻击系统。发现 → 策略锁定 Intent → 自动开仓 → 策略自动退出。  
-研究六页只是观察壳。六门禁不是入场条件。
+新叙事早期资产阻击引擎。抓的是「热点正在变成资产」的连接，不是涨幅榜。  
+Core 与链、叙事、具体市场无关；运行实例只有 `U-01-SOLANA`。研究页不是主线。
 
 **方向**：`docs/alpha/DIRECTION.md`。能力以 `docs/alpha/CAPABILITY-LEDGER.md` 与 `GET /api/capability` 为准。
 
@@ -10,8 +10,11 @@
 ## 产品口径（能力对齐：纸面 ≠ 运行时）
 
 ```text
-台账              star-capability@3
-方向              MEME-SNIPE-AUTO
+台账              star-capability@6
+方向              EARLY-MARKET-RESPONSE
+模型              EVENT-NARRATIVE-ASSET-MARKET-MONEY
+宇宙              U-01 / U-01-SOLANA
+组合              v1-convex
 赚钱能力          NO-EVIDENCE
 研究台            SHELL-ONLY
 策略              snipe-value-meme@v0（自动执行）
@@ -110,6 +113,7 @@ STAR_SMOKE=1 npx vitest run lib/data/rpc-smoke.test.ts
 
 ## 文档
 
+- [架构：Core ≠ 链](docs/alpha/ARCHITECTURE.md)
 - [能力台账](docs/alpha/CAPABILITY-LEDGER.md)（纸面 vs 运行时，单一真相）
 - [赚钱能力合同 rev1](docs/alpha/STAR-MONEY-CAPABILITY-CONTRACT.md)（M0-MEASUREMENT = FROZEN）
 - [M0.1 签署工作单](docs/alpha/M0.1-ACCEPTANCE-WORKSHEET.md)（22 ACCEPT）

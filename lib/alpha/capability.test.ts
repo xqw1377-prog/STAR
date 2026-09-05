@@ -5,8 +5,16 @@ import { resolveExecutionMode } from './execution/mode';
 
 describe('capability alignment', () => {
   it('locks purpose, strategy, and live execution to the same objects', () => {
-    expect(CAPABILITY.id).toBe('star-capability@3');
-    expect(CAPABILITY.purpose).toBe('MEME-SNIPE-AUTO');
+    expect(CAPABILITY.id).toBe('star-capability@6');
+    expect(CAPABILITY.purpose).toBe('EARLY-MARKET-RESPONSE');
+    expect(CAPABILITY.model).toBe('EVENT-NARRATIVE-ASSET-MARKET-MONEY');
+    expect(CAPABILITY.portfolio).toBe('portfolio-policy@v1-convex');
+    expect(CAPABILITY.activeUniverse).toBe('U-01-SOLANA');
+    expect(CAPABILITY.universeClass).toBe('U-01');
+    expect(CAPABILITY.loop).toBe('EVENT-NARRATIVE-ASSET-MARKET-MONEY-DECISION');
+    expect(CAPABILITY.runtime.jupiterDecidesEntry).toBe(false);
+    expect(CAPABILITY.runtime.aveDecidesEntry).toBe(false);
+    expect(CAPABILITY.runtime.jupiterExecute).toBe(false);
     expect(CAPABILITY.money).toBe('NO-EVIDENCE');
     expect(CAPABILITY.research).toBe('SHELL-ONLY');
     expect(CAPABILITY.runtime.strategy).toBe(SNIPE_STRATEGY_ID);

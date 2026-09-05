@@ -66,10 +66,23 @@ export default function SnipeDesk() {
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">阻击台</h1>
         <p className="text-sm text-muted-foreground">
-          一级链上价值 meme · 策略自动开平仓 · 六门禁不参与入场
+          Event → Narrative → Asset → Market → Money · 亏损封顶 · 不错过大赢家
         </p>
       </div>
       {error ? <QueryError message={error} /> : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>阻击模型</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+          <div><div className="text-muted-foreground text-xs">事件</div><div>注意力聚集</div></div>
+          <div><div className="text-muted-foreground text-xs">叙事</div><div>热点资产化</div></div>
+          <div><div className="text-muted-foreground text-xs">市场</div><div>U-01-SOLANA</div></div>
+          <div><div className="text-muted-foreground text-xs">资金</div><div>早期流入</div></div>
+          <div><div className="text-muted-foreground text-xs">退出</div><div>命题失效即走</div></div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>

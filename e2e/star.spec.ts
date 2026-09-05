@@ -85,8 +85,14 @@ test('capability and snipe APIs stay aligned', async ({ request }) => {
   const cap = await request.get('/api/capability');
   expect(cap.status()).toBe(200);
   const ledger = await cap.json();
-  expect(ledger.id).toBe('star-capability@3');
-  expect(ledger.purpose).toBe('MEME-SNIPE-AUTO');
+  expect(ledger.id).toBe('star-capability@6');
+  expect(ledger.purpose).toBe('EARLY-MARKET-RESPONSE');
+  expect(ledger.activeUniverse).toBe('U-01-SOLANA');
+  expect(ledger.universeClass).toBe('U-01');
+  expect(ledger.loop).toBe('EVENT-NARRATIVE-ASSET-MARKET-MONEY-DECISION');
+  expect(ledger.model).toBe('EVENT-NARRATIVE-ASSET-MARKET-MONEY');
+  expect(ledger.runtime.jupiterDecidesEntry).toBe(false);
+  expect(ledger.runtime.aveDecidesEntry).toBe(false);
   expect(ledger.money).toBe('NO-EVIDENCE');
   expect(ledger.runtime.autoTrade).toBe(true);
   expect(ledger.runtime.snipeCycleWired).toBe(true);

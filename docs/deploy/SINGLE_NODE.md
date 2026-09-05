@@ -10,7 +10,7 @@
 - [ ] 生产未设 `STAR_ALLOW_WRITE=1`，或同时设了 `STAR_WRITE_TOKEN`
 - [ ] 进程启动时目录可写（`db/client.ts` 会 `mkdir` + `access W_OK`，失败即拒启动）
 - [ ] `GET /api/health` 返回 `ok: true` 且 `schema` 为 `star-raw@4`
-- [ ] `GET /api/capability` 显示 `id: star-capability@3`、`purpose: MEME-SNIPE-AUTO`、`money: NO-EVIDENCE`
+- [ ] `GET /api/capability` 显示 `id: star-capability@6`、`model: EVENT-NARRATIVE-ASSET-MARKET-MONEY`、`money: NO-EVIDENCE`
 - [ ] 页面横幅仍是夹具自动阻击 / DRY_RUN / 无广播
 - [ ] `GET /api/snipe` 返回 `mode: DRY_RUN` 且会自动推进 tick
 

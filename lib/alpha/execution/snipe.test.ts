@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { NewPoolBirth, PoolBookSnapshot } from '@/lib/alpha/recorder/types';
 import { shouldEnter, SNIPE_V0 } from '@/lib/alpha/strategy/snipe-v0';
+import { solanaLaunchAdapter } from '@/lib/alpha/markets/solana/adapter';
 import { resolveExecutionMode } from './mode';
 import { runSnipeCycle } from './cycle';
 import { resetSnipeRuntime, tickSnipeRuntime } from './runtime';
@@ -33,12 +34,12 @@ const book = (over: Partial<PoolBookSnapshot> = {}): PoolBookSnapshot => ({
 
 describe('snipe-v0', () => {
   it('rejects reserve below 8 SOL', () => {
-    const v = shouldEnter(birth({ initialReserveSolEq: 2 }), book(), []);
+    const v = shouldEnter(birth({ initialReserveSolEq: 2 }), book(), [], solanaLaunchAdapter);
     expect(v.enter).toBe(false);
   });
 
   it('accepts a universe-qualified birth with a book', () => {
-    const v = shouldEnter(birth(), book(), []);
+    const v = shouldEnter(birth(), book(), [], solanaLaunchAdapter);
     expect(v.enter).toBe(true);
     if (v.enter) expect(v.notionalUsdc).toBe(500);
   });
@@ -62,7 +63,7 @@ describe('runSnipeCycle', () => {
       decisionSlot: 200,
     });
     const sell = closed.find((t) => t.side === 'SELL');
-    expect(sell?.exitReason).toBe('LIQUIDITY_COLLAPSE');
+    expect(sell?.exitReason).toBe('LIQUIDITY_EXIT');
   });
 
   it('stays DRY_RUN without STAR_MICRO_LIVE', () => {
@@ -101,7 +102,7 @@ describe('snipe runtime', () => {
 
     let last = first;
     for (let i = 0; i < 5; i += 1) last = tickSnipeRuntime();
-    expect(last.trades.some((t) => t.side === 'SELL' && t.exitReason === 'LIQUIDITY_COLLAPSE')).toBe(true);
+    expect(last.trades.some((t) => t.side === 'SELL' && t.exitReason === 'LIQUIDITY_EXIT')).toBe(true);
     expect(last.open.length).toBeLessThan(3);
   });
 });

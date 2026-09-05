@@ -15,6 +15,8 @@
 | DexScreener | 池/TVL 观察 | 未授权存储/复用 | 阻断 | 第三方聚合，不得当唯一真源 |
 | Raydium API v3 | 池与链上 keys | 公开文档 ≠ 许可 | 阻断 | 有 [API 文档](https://docs.raydium.io/api-reference/api-v3-endpoints/pools/get-pool-on-chain-keys) 不等于已获得存储、复用或商业使用许可 |
 | Jupiter lite-api quote | 只读买卖模拟 | 未评审 | 阻断 | 只允许 quote，禁止 swap；仍待条款 |
+| Jupiter Ultra / Swap V2 | 执行手：`/order` + `/execute` | 未评审 | 待法务 | STAR 已锁定 Intent 后才调用；`/execute` 另需四把锁；Jupiter 不选币 |
+| Ave.ai Data API | 发现眼：新池 / smart money | 未评审 | 待法务 | 只产出 Candidate，禁止当 Decision 或真源 |
 | GitHub API | 代码仓连续性 | GitHub TOS | 阻断 | 未申请稳定配额与归档权 |
 | Solana Verifiable Build | Program 证据 | 官方工具链 | 待法务 | “可验证”≠“无漏洞” |
 | X / Telegram / Discord | 叙事与社交 | 各平台 TOS | 阻断 | §19 开放问题，未选定合法入口 |

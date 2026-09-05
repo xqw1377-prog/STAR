@@ -1,19 +1,11 @@
-# STAR 方向（2026-09-05 起）
+# STAR 方向
 
-STAR 不再以研究页面为主线。
+STAR 不是 Solana Meme 自动交易系统。
 
-唯一产品方向：
+STAR 是跨市场的**新叙事早期资产阻击引擎**：发现热点、寻找最早资产、验证真实市场、判断进入、自动执行、持续重评估，并在叙事或市场结构失效时自动退出。
 
-> 一级链上价值 meme 的自动阻击：发现 → 策略锁定 Intent → 自动开仓 → 策略自动退出。
+模型：Event → Narrative → Asset → Market → Money → Decision  
+组合：`portfolio-policy@v1-convex`（高失误率可接受，单笔亏损封顶，不错过大赢家）  
+运行实例：`U-01-SOLANA`（验证场，不是产品边界）
 
-研究台六页只作观察壳。六门禁、分数、回放不是 Alpha，也不能替代策略。  
-新币出生时六门禁几乎必然 UNKNOWN，阻击策略必须是独立规则，不能等研究门禁全 PASS。
-
-运行时默认 `DRY_RUN`。`STAR_MICRO_LIVE=1` 且本机钱包已配置才允许广播。私钥不得入库。
-
-实现对齐：
-
-- 能力台账 `star-capability@3` 与 `GET /api/capability`、`GET /api/snipe`、阻击台同一套字段。
-- 策略对象 `snipe-value-meme@v0` 独立于六门禁；改规则必须升版本。
-- 进程内自动循环执行开平仓；组合账户按 B1 记账（夹具，不是样本外证据）。
-- `/` 阻击台不初始化研究库。观察页才加载 PGlite。
+台账：`star-capability@6`。

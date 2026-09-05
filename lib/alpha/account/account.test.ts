@@ -7,7 +7,7 @@ import { maxNameNotionalUsdc, PORTFOLIO_POLICY_V0 } from './policy';
 describe('capability ledger', () => {
   it('does not claim money ability or a wired wallet', () => {
     expect(CAPABILITY.money).toBe('NO-EVIDENCE');
-    expect(CAPABILITY.purpose).toBe('MEME-SNIPE-AUTO');
+    expect(CAPABILITY.purpose).toBe('EARLY-MARKET-RESPONSE');
     expect(CAPABILITY.runtime.autoTrade).toBe(true);
     expect(CAPABILITY.runtime.executionDefault).toBe('DRY_RUN');
     expect(CAPABILITY.runtime.walletModule).toBe(false);

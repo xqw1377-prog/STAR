@@ -6,12 +6,21 @@ import { SNIPE_V0 } from '@/lib/alpha/strategy/snipe-v0';
 import { resolveExecutionMode, type ExecutionMode } from './mode';
 import { runSnipeCycle, type CycleTrade } from './cycle';
 import type { OpenPosition } from '@/lib/alpha/strategy/snipe-v0';
+import { discoverCandidates } from '@/lib/alpha/discovery/ave';
+import { STAR_LOOP } from '@/lib/alpha/layers';
+import { composeEarlySignals } from '@/lib/alpha/radar/compose';
+import { fixtureNarrativeAdapter } from '@/lib/alpha/narrative/fixture';
+import { solanaLaunchAdapter } from '@/lib/alpha/markets/solana/adapter';
+import type { EarlySignal } from '@/lib/alpha/core/signal';
 
 export interface SnipeRuntimeSnapshot {
   purpose: typeof CAPABILITY.purpose;
+  product: typeof CAPABILITY.product;
+  loop: typeof STAR_LOOP;
   strategy: typeof SNIPE_V0.id;
   capability: typeof CAPABILITY.id;
   money: typeof CAPABILITY.money;
+  roles: typeof CAPABILITY.roles;
   mode: ExecutionMode;
   broadcast: boolean;
   tick: number;
@@ -20,6 +29,7 @@ export interface SnipeRuntimeSnapshot {
   navUsdc: number;
   open: OpenPosition[];
   trades: CycleTrade[];
+  signals: EarlySignal[];
   lastTickAt: string | null;
 }
 
@@ -59,9 +69,12 @@ export function resetSnipeRuntime(): void {
 export function snapshotSnipeRuntime(): SnipeRuntimeSnapshot {
   return {
     purpose: CAPABILITY.purpose,
+    product: CAPABILITY.product,
+    loop: STAR_LOOP,
     strategy: SNIPE_V0.id,
     capability: CAPABILITY.id,
     money: CAPABILITY.money,
+    roles: CAPABILITY.roles,
     mode: resolveExecutionMode(),
     broadcast: CAPABILITY.runtime.broadcast,
     tick,
@@ -70,8 +83,24 @@ export function snapshotSnipeRuntime(): SnipeRuntimeSnapshot {
     navUsdc: navUsdc(),
     open: [...open],
     trades: [...trades],
+    signals: currentSignals(),
     lastTickAt,
   };
+}
+
+function currentSignals(): EarlySignal[] {
+  const pending = birthsPending();
+  return composeEarlySignals({
+    adapter: fixtureNarrativeAdapter,
+    launches: pending.map((b) => solanaLaunchAdapter.toLaunchEvent(b)),
+    books: books.map((b) => solanaLaunchAdapter.toBookFact(b)),
+    money: pending.map((b) => ({
+      assetId: b.mint,
+      earlyWallets: null,
+      buyPressure: null,
+      flowIn: null,
+    })),
+  });
 }
 
 /** Automatic strategy tick. Birth once per mint. Collapse first book to force exit. */
@@ -95,6 +124,7 @@ export function tickSnipeRuntime(env?: NodeJS.Dict<string>): SnipeRuntimeSnapsho
     books,
     open,
     decisionSlot,
+    candidates: discoverCandidates(),
     env,
   });
 
@@ -107,6 +137,7 @@ export function tickSnipeRuntime(env?: NodeJS.Dict<string>): SnipeRuntimeSnapsho
           mint: t.mint,
           entrySlot: t.intent.executableSlot,
           notionalUsdc: t.fill.filledNotionalUsdc,
+          exitPlan: t.entryThesis?.exitPlan,
         });
       }
     }
