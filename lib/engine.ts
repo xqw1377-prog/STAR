@@ -254,9 +254,11 @@ export function evaluateFactsAsOf(input: EvaluateFactsInput): ProjectEvaluation 
     ? 'BLOCKED'
     : gates.some((g) => g.status === 'UNKNOWN') || evidenceCompleteness < 1
       ? 'RESEARCH_REQUIRED'
-      : ['CROWDING', 'DISTRIBUTION', 'DEAD'].includes(lifecycleAt)
-        ? 'TOO_LATE'
-        : 'READY';
+      : gates.some((g) => g.status === 'PARTIAL')
+        ? 'RESEARCH_REQUIRED' // gates@4: PARTIAL → RESEARCH_REQUIRED (state mapping, not strategy)
+        : ['CROWDING', 'DISTRIBUTION', 'DEAD'].includes(lifecycleAt)
+          ? 'TOO_LATE'
+          : 'READY';
 
   return { projectId, asOf: cutoff, gates, allPass, score, readiness, blockedBy, evidenceUsed, quarantined, ineligible };
 }

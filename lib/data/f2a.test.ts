@@ -49,30 +49,36 @@ describe('F2-A lock: adapter has no verdict authority', () => {
     expect(PARSERS).not.toContain('SELL_MAX_PRICE_IMPACT_PCT');
   });
 
-  it('3+4. interpretSell consumes nothing and always answers UNKNOWN (interregnum)', () => {
-    expect(INTERPRET.match(/interpretSell[\s\S]*?\n}/)?.[0]).not.toContain('executable');
+  it('3+4. interpretSell bridges to E-01 (gates@4 F2-B); no adapter verdict consumption', () => {
+    expect(INTERPRET.match(/interpretSell[\s\S]*?\n}/)?.[0]).not.toContain('p.executable');
+    // Legacy payloads without e01Status → UNKNOWN (fail-closed for legacy)
     expect(interpretCheck('sell-simulation', { priceImpactPct: 0.001, buy: { priceImpactPct: 0.001 } }).status).toBe('UNKNOWN');
     expect(interpretCheck('sell-simulation', { priceImpactPct: 0.9, buy: { priceImpactPct: 0.9 } }).status).toBe('UNKNOWN');
     expect(interpretCheck('sell-simulation', {}).status).toBe('UNKNOWN');
+    // E-01 bridged payloads produce governed states
+    expect(interpretCheck('sell-simulation', { e01Status: 'PASS', e01Reason: 'N≥intended' }).status).toBe('PASS');
+    expect(interpretCheck('sell-simulation', { e01Status: 'PARTIAL', e01Reason: 'partial' }).status).toBe('PARTIAL');
   });
 
   it('5. priceImpactPct survives as a raw fact', () => {
     expect(parseJupiterQuote({ outAmount: '900', priceImpactPct: '0.012' }, '1000').priceImpactPct).toBe(0.012);
   });
 
-  it('6+7. no 5% standing and no smuggled 0.15/0.80 rules (F2-B is gated)', () => {
+  it('6+7. no 5% standing; E-01 thresholds live in governed thresholds.ts (gates@4)', () => {
     expect(PARSERS).not.toContain('0.05');
     expect(INTERPRET).not.toContain('0.05');
-    expect(INTERPRET).not.toContain('0.15');
-    expect(INTERPRET).not.toContain('0.8');
+    // 0.15/0.80 now authorized in thresholds.ts per E-01 FROZEN-v1 + gates@4 GCP
     const thresholds = readFileSync(join(ROOT, 'lib/domain/thresholds.ts'), 'utf8');
-    expect(thresholds).not.toContain('0.15');
-    expect(thresholds).not.toContain('IMPACT');
-    expect(thresholds).not.toContain('PRICING_LEG');
+    expect(thresholds).toContain('IMPACT_MAX_PCT: 0.15');
+    expect(thresholds).toContain('PRICING_LEG_MIN_RATIO: 0.80');
+    // Adapter still has no thresholds
+    expect(PARSERS).not.toContain('0.15');
+    expect(PARSERS).not.toContain('0.80');
   });
 
-  it('8. gates@3 rule version unchanged', () => {
-    expect(RULE_VERSION).toBe('gates@3');
+  it('8. gates@4 rule version (upgraded from gates@3 per GCP, F2-B authorized)', () => {
+    expect(RULE_VERSION).toBe('gates@4');
+    expect(RULE_VERSION).not.toBe('gates@3');
   });
 
   it('9. commitment did NOT enter the contract (F4 locked)', () => {

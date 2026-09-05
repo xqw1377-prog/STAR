@@ -20,7 +20,7 @@ export const checkKeys = [
 ] as const;
 export type CheckKey = (typeof checkKeys)[number];
 
-export const gateStatuses = ['PASS', 'FAIL', 'UNKNOWN'] as const;
+export const gateStatuses = ['PASS', 'FAIL', 'UNKNOWN', 'PARTIAL'] as const;
 export type GateStatus = (typeof gateStatuses)[number];
 
 export const sourceKinds = ['CHAIN', 'CODE', 'SIMULATION', 'SYNTHETIC'] as const;

@@ -40,16 +40,17 @@ function interpretToken(p: Record<string, unknown>, focus: 'mint' | 'freeze'): I
 }
 
 function interpretSell(p: Record<string, unknown>): InterpretResult {
-  // F2-A interregnum (principal ruling 2026-09-05): the D1-revoked adapter
-  // verdict field (ungoverned 5% threshold) no longer exists, and the
-  // governed E-01 interpreter (≥80% pricing leg + ≤15% impact, F2-B) is not
-  // yet authorized. Tradability therefore reads UNKNOWN — never PASS, never
-  // FAIL — until F2-B lands. priceImpactPct remains a recorded raw fact.
-  void p;
-  return {
-    status: 'UNKNOWN',
-    claim: 'E-01 interpreter not yet authorized (F2-B pending); raw priceImpactPct recorded as fact only',
-  };
+  // F2-B (authorized 2026-09-05): interpretSell now consumes the E-01
+  // Interpreter's gate status. The legacy `executable` adapter verdict was
+  // removed in solana-readonly@4 (F2-A). This function bridges pool-state
+  // evidence payloads to the governed E-01 state machine (gates@4).
+  // Note: for legacy sell-simulation payloads (pre-@4 evidence), the
+  // raw priceImpactPct remains recorded but cannot produce PASS/FAIL/PARTIAL.
+  const e01Status = p.e01Status as 'PASS' | 'FAIL' | 'PARTIAL' | 'UNKNOWN' | undefined;
+  if (e01Status === 'PASS') return { status: 'PASS', claim: String(p.e01Reason ?? 'E-01: N ≥ intended') };
+  if (e01Status === 'FAIL') return { status: 'FAIL', claim: String(p.e01Reason ?? 'E-01: N = 0') };
+  if (e01Status === 'PARTIAL') return { status: 'PARTIAL', claim: String(p.e01Reason ?? 'E-01: partial capacity') };
+  return { status: 'UNKNOWN', claim: String(p.e01Reason ?? p.detail ?? 'E-01 inputs incomplete or legacy payload') };
 }
 
 function lockStillActive(pool: Record<string, unknown>, asOf: Date): boolean {

@@ -4,7 +4,7 @@ import { pgTable, text, timestamp, real, jsonb, integer, primaryKey, pgEnum, ser
 export const lifecycle = pgEnum('lifecycle', [
   'SEED', 'IGNITION', 'VERIFIED', 'ACCELERATION', 'CROWDING', 'DISTRIBUTION', 'DEAD',
 ]);
-export const gateStatus = pgEnum('gate_status', ['PASS', 'FAIL', 'UNKNOWN']);
+export const gateStatus = pgEnum('gate_status', ['PASS', 'FAIL', 'UNKNOWN', 'PARTIAL']);
 export const alertLevel = pgEnum('alert_level', ['CRITICAL', 'HIGH', 'MEDIUM', 'INFO']);
 
 export const chains = pgTable('chains', {
