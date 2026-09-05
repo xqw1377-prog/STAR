@@ -1,6 +1,5 @@
 DO $$ BEGIN CREATE TYPE "public"."alert_level" AS ENUM('CRITICAL', 'HIGH', 'MEDIUM', 'INFO'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE "public"."gate_status" AS ENUM('PASS', 'FAIL', 'UNKNOWN', 'PARTIAL'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-DO $$ BEGIN ALTER TYPE "public"."gate_status" ADD VALUE IF NOT EXISTS 'PARTIAL'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE "public"."lifecycle" AS ENUM('SEED', 'IGNITION', 'VERIFIED', 'ACCELERATION', 'CROWDING', 'DISTRIBUTION', 'DEAD'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE TABLE IF NOT EXISTS "chains" (
 	"id" text PRIMARY KEY NOT NULL,

@@ -179,12 +179,65 @@ describe('invariant f: five-layer eligibility gate', () => {
   });
 });
 
-describe('DQ-1: pump.fun virtual/real not selectable', () => {
-  it('pump.fun-curve venue → UNKNOWN (DQ-1 OPEN)', () => {
-    const rec = poolStateRecord({ value: { venue: 'pump.fun-curve', mint: 'M', poolAddress: 'P', slot: 1, feesResolved: true, virtualSolReserves: '30000', realSolReserves: '25000' } });
+describe('DQ-1 CLOSED → REAL: pump.fun uses real reserves', () => {
+  it('pump.fun-curve venue → computes N from realSol/realToken (not virtual)', () => {
+    const rec = poolStateRecord({ value: {
+      venue: 'pump.fun-curve', mint: 'M', poolAddress: 'P', slot: 1, feesResolved: true,
+      virtualSolReserves: '30000000000', virtualTokenReserves: '1073000000000000',
+      realSolReserves: '7500000000', realTokenReserves: '793000000000000',
+      complete: false, tokenTotalSupply: '1000000000000000',
+    }});
+    const result = interpretE01Sell({ poolState: rec, intendedNotional: 1000000n });
+    // Should NOT be UNKNOWN (DQ-1 is CLOSED → REAL)
+    expect(result.status).not.toBe('UNKNOWN');
+    // N should be computed from real reserves (7.5 SOL ≈ 7.5e9 lamports)
+    expect(result.executableNotional).not.toBeNull();
+    expect(result.executableNotional!).toBeGreaterThan(0n);
+    // Pricing leg: N ≤ realSol/5 = 7.5e9/5 = 1.5e9
+    expect(result.executableNotional!).toBeLessThanOrEqual(1500000000n);
+  });
+
+  it('pump.fun with zero real reserves → FAIL', () => {
+    const rec = poolStateRecord({ value: {
+      venue: 'pump.fun-curve', mint: 'M', poolAddress: 'P', slot: 1, feesResolved: true,
+      virtualSolReserves: '30000000000', virtualTokenReserves: '1073000000000000',
+      realSolReserves: '0', realTokenReserves: '0',
+      complete: false, tokenTotalSupply: '1000000000000000',
+    }});
+    const result = interpretE01Sell({ poolState: rec, intendedNotional: 1000000n });
+    expect(result.status).toBe('FAIL');
+  });
+
+  it('virtual reserves do NOT influence N (REAL basis only)', () => {
+    // Two records with SAME real reserves but DIFFERENT virtual → same N
+    const rec1 = poolStateRecord({ value: {
+      venue: 'pump.fun-curve', mint: 'M', poolAddress: 'P', slot: 1, feesResolved: true,
+      virtualSolReserves: '30000000000', realSolReserves: '7500000000',
+      virtualTokenReserves: '1073000000000000', realTokenReserves: '793000000000000',
+      complete: false, tokenTotalSupply: '1000000000000000',
+    }});
+    const rec2 = poolStateRecord({ value: {
+      venue: 'pump.fun-curve', mint: 'M', poolAddress: 'P', slot: 1, feesResolved: true,
+      virtualSolReserves: '99999999999', realSolReserves: '7500000000',
+      virtualTokenReserves: '1', realTokenReserves: '793000000000000',
+      complete: false, tokenTotalSupply: '1000000000000000',
+    }});
+    const r1 = interpretE01Sell({ poolState: rec1, intendedNotional: 1n });
+    const r2 = interpretE01Sell({ poolState: rec2, intendedNotional: 1n });
+    // Same real reserves → same N regardless of virtual
+    expect(r1.executableNotional).toBe(r2.executableNotional);
+    expect(r1.status).toBe(r2.status);
+  });
+
+  it('pump.fun missing real reserves → UNKNOWN', () => {
+    const rec = poolStateRecord({ value: {
+      venue: 'pump.fun-curve', mint: 'M', poolAddress: 'P', slot: 1, feesResolved: true,
+      virtualSolReserves: '30000',
+      // realSolReserves and realTokenReserves missing
+    }});
     const result = interpretE01Sell({ poolState: rec, intendedNotional: 100n });
     expect(result.status).toBe('UNKNOWN');
-    expect(result.reason).toContain('DQ-1');
+    expect(result.reason).toContain('realSolReserves');
   });
 });
 

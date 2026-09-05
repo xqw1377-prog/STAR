@@ -149,14 +149,24 @@ export function interpretE01Sell(input: E01Input): E01Result {
   }
 
   const value = poolState.value as Record<string, unknown>;
-  if (value['venue'] === 'pump.fun-curve') {
-    return unknownResult('DQ-1 OPEN: pump.fun virtual/real not governance-authorized', prov);
+  const venue = value['venue'] as string;
+
+  let Rq: bigint | null;
+  let Rb: bigint | null;
+
+  if (venue === 'pump.fun-curve') {
+    // DQ-1 CLOSED → REAL (2026-09-05): governance-authorized reserve basis
+    // is real_sol / real_token. Virtual reserves remain descriptive only.
+    Rq = value['realSolReserves'] != null ? BigInt(value['realSolReserves'] as string) : null;
+    Rb = value['realTokenReserves'] != null ? BigInt(value['realTokenReserves'] as string) : null;
+  } else {
+    // Raydium venues: standard reserve fields
+    Rq = value['reserveQuote'] != null ? BigInt(value['reserveQuote'] as string) : null;
+    Rb = value['reserveBase'] != null ? BigInt(value['reserveBase'] as string) : null;
   }
 
-  const Rq = value['reserveQuote'] != null ? BigInt(value['reserveQuote'] as string) : null;
-  const Rb = value['reserveBase'] != null ? BigInt(value['reserveBase'] as string) : null;
   if (Rq == null || Rb == null) {
-    return unknownResult(`E-01 required input '${Rq == null ? 'reserveQuote' : 'reserveBase'}' is null`, prov);
+    return unknownResult(`E-01 required input '${Rq == null ? (venue === 'pump.fun-curve' ? 'realSolReserves' : 'reserveQuote') : (venue === 'pump.fun-curve' ? 'realTokenReserves' : 'reserveBase')}' is null`, prov);
   }
   if (Rq <= 0n || Rb <= 0n) {
     return failResult(0n, 'Reserves non-positive — no executable depth', prov);
@@ -195,10 +205,18 @@ export function interpretE01Buy(input: E01Input): E01Result {
   if (!eligibility.eligible) return unknownResult(`Layer ${eligibility.layer}: ${eligibility.reason}`, prov);
 
   const value = poolState.value as Record<string, unknown>;
-  if (value['venue'] === 'pump.fun-curve') return unknownResult('DQ-1 OPEN', prov);
+  const venue = value['venue'] as string;
 
-  const Rq = value['reserveQuote'] != null ? BigInt(value['reserveQuote'] as string) : null;
-  const Rb = value['reserveBase'] != null ? BigInt(value['reserveBase'] as string) : null;
+  let Rq: bigint | null;
+  let Rb: bigint | null;
+  if (venue === 'pump.fun-curve') {
+    // DQ-1 CLOSED → REAL
+    Rq = value['realSolReserves'] != null ? BigInt(value['realSolReserves'] as string) : null;
+    Rb = value['realTokenReserves'] != null ? BigInt(value['realTokenReserves'] as string) : null;
+  } else {
+    Rq = value['reserveQuote'] != null ? BigInt(value['reserveQuote'] as string) : null;
+    Rb = value['reserveBase'] != null ? BigInt(value['reserveBase'] as string) : null;
+  }
   if (Rq == null || Rb == null || Rq <= 0n || Rb <= 0n) return unknownResult('Reserves null or non-positive', prov);
 
   const dtBuyMax = buyMaxDt(Rb);
