@@ -24,6 +24,7 @@ function normalize(e: ObservationEnvelope, kind: EvidenceFactType): Record<strin
   const required: Record<string, string[]> = {
     'asset-birth': ['mint'],
     'pool-book': ['mint', 'quoteReserve'],
+    'pool-state': ['mint', 'poolAddress', 'venue', 'feesResolved'],
     'mint-authority-state': ['mintAuthority'],
     'freeze-authority-state': ['freezeAuthority'],
     'token-2022-extensions': ['extensions'],

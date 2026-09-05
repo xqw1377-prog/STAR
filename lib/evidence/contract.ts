@@ -13,7 +13,7 @@
 import type { GateKey } from '@/lib/domain/types';
 import { assertSourceEnabled } from '@/lib/data/source-registry';
 
-export const EVIDENCE_CONTRACT_VERSION = 'star-evidence@1';
+export const EVIDENCE_CONTRACT_VERSION = 'star-evidence@2';
 
 // ── Capability packages (CAP registry) ──
 
@@ -62,6 +62,9 @@ export const EVIDENCE_FACT_TYPES = [
   // CAP-02 chain observation (observation layer, never gate input)
   'asset-birth',
   'pool-book',
+  // Reserve/Curve state facts (Evidence Vocabulary CCP approved 2026-09-05:
+  // additive pool-state; pool-book keeps its @1 semantics, deprecated-for-E01).
+  'pool-state',
   // CAP-01 external intelligence (candidate only, NEVER gate-eligible)
   'external-event-candidate',
 ] as const;
@@ -84,6 +87,7 @@ export const GATE_ELIGIBLE_EVIDENCE: Record<EvidenceFactType, readonly GateKey[]
   // Observation layer: feeds lifecycle/anchors, never a gate.
   'asset-birth': [],
   'pool-book': [],
+  'pool-state': [],
   // External intelligence tops out at CANDIDATE. NEVER gate-eligible.
   'external-event-candidate': [],
 };
@@ -121,6 +125,48 @@ export class EvidenceContractViolation extends Error {}
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 
+/**
+ * per-kind payload validators — @2 introduces this capability for NEW kinds
+ * only (CCP-02 ruling); existing kinds keep their @1 semantics untouched.
+ * Validators check STRUCTURAL completeness (fields/types/presence/venue
+ * discriminator), never E-01 business correctness — no impact/pricing/N/
+ * PASS-FAIL logic may live here (Adapter Design hard boundary).
+ */
+const POOL_STATE_VENUES = ['raydium-amm-v4', 'raydium-cpmm', 'pump.fun-curve'] as const;
+
+/** Field names that would smuggle an E-01 input structure into the fact layer. */
+const E01_FLAVORED_KEY = /executable|impact|pricing|notional|intended|partial/i;
+
+function validatePoolStatePayload(value: Record<string, unknown>, fail: (why: string) => never): void {
+  for (const key of Object.keys(value)) {
+    if (E01_FLAVORED_KEY.test(key)) fail(`pool-state payload key '${key}' smuggles E-01 input structure into the fact layer (forbidden by Adapter Design hard boundary)`);
+  }
+  for (const field of ['mint', 'poolAddress']) {
+    if (typeof value[field] !== 'string' || !value[field]) fail(`pool-state.${field} must be a non-empty string`);
+  }
+  if (!POOL_STATE_VENUES.includes(value.venue as never)) {
+    fail(`pool-state.venue must be one of ${POOL_STATE_VENUES.join('|')}`);
+  }
+  if (value.slot != null && (typeof value.slot !== 'number' || !Number.isInteger(value.slot) || value.slot < 0)) {
+    fail('pool-state.slot must be a non-negative integer or null');
+  }
+  if (typeof value.feesResolved !== 'boolean') fail('pool-state.feesResolved (boolean) is required — fee dimension completeness flag');
+  const reserveFields = [
+    'reserveQuote', 'reserveBase', 'vaultA', 'vaultB',
+    'virtualSolReserves', 'virtualTokenReserves', 'realSolReserves', 'realTokenReserves',
+    'tokenTotalSupply',
+  ];
+  for (const f of reserveFields) {
+    if (value[f] != null && typeof value[f] !== 'string') fail(`pool-state.${f} must be a raw string (raw units) or null`);
+  }
+  if (value.feeFields != null && typeof value.feeFields !== 'object') fail('pool-state.feeFields must be an object (raw provider fields) or null');
+  if (value.complete != null && typeof value.complete !== 'boolean') fail('pool-state.complete must be a boolean or null');
+}
+
+const PER_KIND_PAYLOAD_VALIDATORS: Partial<Record<EvidenceFactType, (value: Record<string, unknown>, fail: (why: string) => never) => void>> = {
+  'pool-state': validatePoolStatePayload,
+};
+
 function fail(why: string): never {
   throw new EvidenceContractViolation(`evidence contract: ${why}`);
 }
@@ -137,6 +183,8 @@ export function assertEvidence(e: EvidenceRecord): void {
   }
   if (!ISO_UTC.test(e.observedAt)) fail(`observedAt must be ISO UTC, got ${e.observedAt}`);
   if (!e.value || typeof e.value !== 'object') fail('value payload required');
+  const perKind = PER_KIND_PAYLOAD_VALIDATORS[e.factType];
+  if (perKind) perKind(e.value, fail);
   if (e.confidence != null && (e.confidence < 0 || e.confidence > 1)) fail('confidence must be within [0,1] when present');
   // Source gating: fail-closed. Unlicensed sources cannot record evidence.
   try {

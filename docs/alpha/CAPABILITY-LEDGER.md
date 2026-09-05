@@ -23,6 +23,17 @@ Decision Core     不可触达（代码边界 + DB 触发器 + 写面测试三�
 B2                未授权启动
 ```
 
+## 储备/曲线适配器（@7 新增，CCP 授权 2026-09-05）
+
+```text
+适配器            star-reserve-curve@1
+状态              IMPLEMENTED-FIXTURE-ONLY（lib/poolstate/；纯解码器官，只答事实不答 E-01）
+Evidence 版本     star-evidence@2（新增 pool-state kind + 仅新 kind 结构校验）
+布局债务          pump.fun 偏移 PENDING-ON-CHAIN；Raydium 费率提取延后（feesResolved:false）
+DQ-1             virtual/real 双出（OPEN——选择权在 Interpreter）
+DQ-2             部分事实保留（CLOSED——消费者不得当完整 E-01 输入）
+```
+
 ## M1 链上观察层（@7 新增，主理人授权 2026-09-05）
 
 ```text

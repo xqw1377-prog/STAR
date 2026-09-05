@@ -261,6 +261,6 @@ describe('M5-④ capability registry integrity — READY ≠ ENABLED, forever', 
   it('the ledger never claims ENABLED for any organ (the word is reserved for sources)', () => {
     const src = readFileSync(join(ROOT, 'lib/alpha/capability.ts'), 'utf8');
     expect(src).not.toMatch(/status:\s*'ENABLED/);
-    expect(EVIDENCE_CONTRACT_VERSION).toBe('star-evidence@1');
+    expect(EVIDENCE_CONTRACT_VERSION).toBe('star-evidence@2'); // @2 per Evidence Vocabulary CCP (pool-state)
   });
 });
