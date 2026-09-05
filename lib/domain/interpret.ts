@@ -39,20 +39,17 @@ function interpretToken(p: Record<string, unknown>, focus: 'mint' | 'freeze'): I
   };
 }
 
-function impactMissing(impact: unknown): boolean {
-  return impact == null || (typeof impact === 'number' && Number.isNaN(impact));
-}
-
 function interpretSell(p: Record<string, unknown>): InterpretResult {
-  if (p.executable === false) return { status: 'FAIL', claim: String(p.detail ?? 'Sell path not executable') };
-  if (impactMissing(p.priceImpactPct)) {
-    return { status: 'UNKNOWN', claim: 'Sell priceImpactPct not observed' };
-  }
-  const buy = p.buy as { executable?: boolean; priceImpactPct?: number | null } | null | undefined;
-  if (!buy) return { status: 'UNKNOWN', claim: 'Buy path unproven' };
-  if (impactMissing(buy.priceImpactPct)) return { status: 'UNKNOWN', claim: 'Buy priceImpactPct not observed' };
-  if (buy.executable === false) return { status: 'FAIL', claim: 'Buy path not executable' };
-  return { status: 'PASS', claim: 'Buy and sell paths executable with observed impact' };
+  // F2-A interregnum (principal ruling 2026-09-05): the D1-revoked adapter
+  // verdict field (ungoverned 5% threshold) no longer exists, and the
+  // governed E-01 interpreter (≥80% pricing leg + ≤15% impact, F2-B) is not
+  // yet authorized. Tradability therefore reads UNKNOWN — never PASS, never
+  // FAIL — until F2-B lands. priceImpactPct remains a recorded raw fact.
+  void p;
+  return {
+    status: 'UNKNOWN',
+    claim: 'E-01 interpreter not yet authorized (F2-B pending); raw priceImpactPct recorded as fact only',
+  };
 }
 
 function lockStillActive(pool: Record<string, unknown>, asOf: Date): boolean {

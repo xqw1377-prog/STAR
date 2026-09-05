@@ -42,14 +42,12 @@ function missingImpact(v: unknown): boolean {
   return v == null || (typeof v === 'number' && Number.isNaN(v));
 }
 
-function sellVerdict(p: Record<string, unknown>): Verdict {
-  if (p.executable === false) return 'FAIL';
-  if (missingImpact(p.priceImpactPct)) return 'UNKNOWN';
-  const buy = p.buy as { executable?: boolean; priceImpactPct?: number | null } | null | undefined;
-  if (!buy) return 'UNKNOWN';
-  if (missingImpact(buy.priceImpactPct)) return 'UNKNOWN';
-  if (buy.executable === false) return 'FAIL';
-  return 'PASS';
+function sellVerdict(_p: Record<string, unknown>): Verdict {
+  // F2-A: the adapter executable verdict is gone and the governed E-01
+  // interpreter is not yet authorized (F2-B). Calibration truth may not use
+  // ungoverned judgments, so tradability calibrates as UNKNOWN until F2-B.
+  void _p;
+  return 'UNKNOWN';
 }
 
 function lockActive(pool: Record<string, unknown>, asOfMs: number): boolean {

@@ -114,20 +114,18 @@ describe('parseDexScreener', () => {
 });
 
 describe('parseJupiterQuote + parseBuyQuote (GATE-002 legs)', () => {
-  it('marks a bounded-impact sell route executable, buy leg separate', () => {
-    const payload = parseJupiterQuote({ outAmount: '500', priceImpactPct: '0.01' }, '1000');
-    expect(payload.executable).toBe(true);
-    expect(payload.buy).toBeNull();
-    const buy = parseBuyQuote({ outAmount: '990', priceImpactPct: '0.02' });
-    expect(buy!.executable).toBe(true);
-    expect(buy!.outAmount).toBe('990');
+  it('F2-A: parser emits raw observations only — no verdict fields', () => {
+    const payload = parseJupiterQuote({ outAmount: '900', priceImpactPct: '0.012' }, '1000');
+    expect(payload).not.toHaveProperty('executable');
+    expect(payload.outAmount).toBe('900');
+    expect(payload.priceImpactPct).toBe(0.012);
+    const buy = parseBuyQuote({ outAmount: '990', priceImpactPct: '0.014' });
+    expect(buy).not.toHaveProperty('executable');
+    expect(buy!.priceImpactPct).toBe(0.014);
+    expect(parseJupiterQuote({ outAmount: '500' }, '1000').priceImpactPct).toBeNull();
+    expect(parseJupiterQuote(null, '1000').outAmount).toBeNull();
   });
-  it('blocks outsized impact on either leg', () => {
-    expect(parseJupiterQuote({ outAmount: '500', priceImpactPct: '0.4' }, '1000').executable).toBe(false);
-    expect(parseBuyQuote({ outAmount: '990', priceImpactPct: '0.4' })!.executable).toBe(false);
-  });
-  it('missing routes fail closed', () => {
-    expect(parseJupiterQuote(null, '1000').executable).toBe(false);
+  it('missing routes return null-shape facts', () => {
     expect(parseBuyQuote(null)).toBeNull();
   });
 });

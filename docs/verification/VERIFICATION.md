@@ -89,3 +89,11 @@ e2e 含：四页面渲染 + SYNTHETIC FIXTURE DATA 标注（SAFE-004）、STAR D
 
 - `star/` 保持只读参考，复审通过后归档。
 - 任何写入 star-web 的行为都会使 `git status --short` 非空，即冻结失效，需重新走固定提交流程。
+
+## F2-A Contract Change Record（2026-09-05，主理人批准）
+
+- `solana-readonly@3 → @4`：删除 `SellSimulationPayload.executable` 与 `buy.executable`（无治理身份的 5% 适配器裁决；D1 裁定 E-01 为唯一真源）。
+- 新契约哈希（SHA-256 前 16 位）：`4beab2a377a0e289`（原 @3 记录 `0764a5f455a3cd8fd` 由此作废）。
+- 行为过渡态：tradability 门禁恒 UNKNOWN（fail-closed），直到 F2-B 的 E-01 解释器获授权（gates@4）。
+- M0–M5 业务语义零变更；gates@3 零变更；commitment（F4）未进入契约。
+- 锁定测试：`lib/data/f2a.test.ts`（九项证明）。

@@ -26,11 +26,21 @@ describe('D1-C synthetic corpus', () => {
     expect(stats.success).toBe(50);
     expect(stats.fail).toBe(100);
     for (const g of GATE_NAMES) {
-      expect(stats.cover[g].PASS, g).toBeGreaterThanOrEqual(3);
-      expect(stats.cover[g].FAIL, g).toBeGreaterThanOrEqual(3);
-      expect(stats.cover[g].UNKNOWN, g).toBeGreaterThanOrEqual(3);
+      if (g === 'tradability') {
+        // F2-A interregnum: the adapter verdict is gone and the governed
+        // E-01 interpreter (F2-B) is not yet authorized, so tradability
+        // calibrates UNKNOWN-only. PASS/FAIL coverage is unproducible by
+        // design until F2-B restores interpretability.
+        expect(stats.cover[g].PASS).toBe(0);
+        expect(stats.cover[g].FAIL).toBe(0);
+        expect(stats.cover[g].UNKNOWN).toBeGreaterThanOrEqual(3);
+      } else {
+        expect(stats.cover[g].PASS, g).toBeGreaterThanOrEqual(3);
+        expect(stats.cover[g].FAIL, g).toBeGreaterThanOrEqual(3);
+        expect(stats.cover[g].UNKNOWN, g).toBeGreaterThanOrEqual(3);
+      }
     }
-    expect(stats.successAllPass).toBeGreaterThanOrEqual(10);
+    expect(stats.successAllPass).toBe(0); // F2-A interregnum: no all-PASS possible
     expect(stats.failPartial).toBeGreaterThanOrEqual(30);
   });
 

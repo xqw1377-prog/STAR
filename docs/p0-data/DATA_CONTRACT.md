@@ -47,6 +47,8 @@ Quality rules (`RULE_VERSION = gates@2`), implemented only in `interpretCheck`:
 
 Observation payloads (`solana-readonly@2` in star-web) must carry these fields; RPC parsers that cannot prove them emit `null` so the gate stays UNKNOWN.
 
+> **solana-readonly@4（F2-A 契约变更，主理人批准 2026-09-05）**：`SellSimulationPayload` 删除 `executable` / `buy.executable` 裁决字段（5% 阈值无治理身份，D1 撤销）。适配器只产出原始观察（priceImpactPct 等）；tradability 解释权归 F2-B 的 E-01 解释器（未授权），过渡期恒 UNKNOWN。
+
 ## Evidence contract
 
 Each evidence record must contain:

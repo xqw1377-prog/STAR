@@ -56,22 +56,23 @@ describe('point-in-time gates — proj-neural', () => {
     expect(gateOf(ev, 'liquidity').status).toBe('FAIL');
   });
 
-  it('08-23: liquidity + tradability + program PASS, holders still concentrated', async () => {
+  it('08-23: liquidity + program PASS, holders still concentrated; tradability UNKNOWN (F2-A interregnum)', async () => {
     const ev = await evaluateProjectAsOf(db, 'proj-neural', at('2026-08-23T12:00:00Z'));
     expect(gateOf(ev, 'liquidity').status).toBe('PASS');
-    expect(gateOf(ev, 'tradability').status).toBe('PASS');
+    // F2-A: adapter verdict removed, E-01 interpreter pending (F2-B) → UNKNOWN.
+    expect(gateOf(ev, 'tradability').status).toBe('UNKNOWN');
     expect(gateOf(ev, 'program-verification').status).toBe('PASS');
     expect(gateOf(ev, 'concentration').status).toBe('FAIL');
     expect(ev.score).toBeNull();
     expect(ev.readiness).toBe('BLOCKED');
   });
 
-  it('08-25: all six gates PASS → score exists, readiness READY', async () => {
+  it('08-25: five gates PASS but tradability stays UNKNOWN (F2-A interregnum) → no score, no READY', async () => {
     const ev = await evaluateProjectAsOf(db, 'proj-neural', at('2026-08-25T12:00:00Z'));
-    expect(ev.gates.every((g: any) => g.status === 'PASS')).toBe(true);
-    expect(ev.score).not.toBeNull();
-    expect(ev.score.total).toBeGreaterThan(0);
-    expect(ev.readiness).toBe('READY');
+    expect(ev.gates.filter((g: any) => g.status === 'PASS')).toHaveLength(5);
+    expect(gateOf(ev, 'tradability').status).toBe('UNKNOWN');
+    expect(ev.score).toBeNull();
+    expect(ev.readiness).toBe('RESEARCH_REQUIRED');
   });
 
   it('before any evidence: every gate UNKNOWN (GATE-008 fail-closed), readiness RESEARCH_REQUIRED', async () => {
@@ -83,10 +84,10 @@ describe('point-in-time gates — proj-neural', () => {
 });
 
 describe('blocked projects never score (GATE-007/008)', () => {
-  it('proj-honeypot: sell leg broken → tradability FAIL, cluster 70% → related-wallets FAIL', async () => {
+  it('proj-honeypot: no sell route → tradability UNKNOWN (F2-A interregnum), cluster 70% → related-wallets FAIL', async () => {
     const ev = await evaluateProjectAsOf(db, 'proj-honeypot', at('2026-09-01T00:00:00Z'));
     expect(gateOf(ev, 'token-permissions').status).toBe('FAIL');
-    expect(gateOf(ev, 'tradability').status).toBe('FAIL');
+    expect(gateOf(ev, 'tradability').status).toBe('UNKNOWN');
     expect(gateOf(ev, 'related-wallets').status).toBe('FAIL');
     expect(gateOf(ev, 'liquidity').status).toBe('FAIL');
     expect(ev.score).toBeNull();

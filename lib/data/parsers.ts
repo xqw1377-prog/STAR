@@ -159,16 +159,20 @@ export function parseDexScreener(json: any, mint: string): LiquidityPayload {
   };
 }
 
-export const SELL_MAX_PRICE_IMPACT_PCT = 0.05;
-
-/** Jupiter lite-api /swap/v1/quote response (or null when no route). */
+/**
+ * Jupiter lite-api /swap/v1/quote response (or null when no route).
+ *
+ * F2-A (2026-09-05): adapters produce RAW OBSERVATIONS only. The 5%
+ * `executable` verdict is deleted — it had no governance standing (D1: E-01
+ * ≥80% + ≤15% is the sole source of truth, interpreted in the governed
+ * layer under F2-B). priceImpactPct passes through untouched.
+ */
 export function parseJupiterQuote(
   quote: any,
   inputAmount: string,
 ): SellSimulationPayload {
   if (!quote || !quote.outAmount) {
     return {
-      executable: false,
       method: 'jupiter-quote',
       inputAmount,
       outAmount: null,
@@ -178,42 +182,25 @@ export function parseJupiterQuote(
     };
   }
   const impact = quote.priceImpactPct != null ? Number(quote.priceImpactPct) : null;
-  if (impact == null || Number.isNaN(impact)) {
-    return {
-      executable: false,
-      method: 'jupiter-quote',
-      inputAmount,
-      outAmount: String(quote.outAmount),
-      priceImpactPct: null,
-      buy: null,
-      detail: 'Route exists but priceImpactPct missing — cannot prove executable',
-    };
-  }
-  const executable = impact <= SELL_MAX_PRICE_IMPACT_PCT;
   return {
-    executable,
     method: 'jupiter-quote',
     inputAmount,
     outAmount: String(quote.outAmount),
-    priceImpactPct: impact,
+    priceImpactPct: impact == null || Number.isNaN(impact) ? null : impact,
     buy: null,
-    detail: executable
-      ? `Route exists, out ${quote.outAmount}, impact ${impact}`
-      : `Route exists but price impact ${(impact * 100).toFixed(2)}% exceeds ${(SELL_MAX_PRICE_IMPACT_PCT * 100).toFixed(0)}%`,
+    detail: impact == null || Number.isNaN(impact)
+      ? 'Route exists but priceImpactPct not reported (raw fact; interpretation deferred)'
+      : `Route exists, out ${quote.outAmount}, impact ${impact}`,
   };
 }
 
 /** Buy leg from the reverse (WSOL → token) quote; null when no route. */
-export function parseBuyQuote(quote: any): { executable: boolean; outAmount: string | null; priceImpactPct: number | null } | null {
+export function parseBuyQuote(quote: any): { outAmount: string | null; priceImpactPct: number | null } | null {
   if (!quote || !quote.outAmount) return null;
   const impact = quote.priceImpactPct != null ? Number(quote.priceImpactPct) : null;
-  if (impact == null || Number.isNaN(impact)) {
-    return { executable: false, outAmount: String(quote.outAmount), priceImpactPct: null };
-  }
   return {
-    executable: impact <= SELL_MAX_PRICE_IMPACT_PCT,
     outAmount: String(quote.outAmount),
-    priceImpactPct: impact,
+    priceImpactPct: impact == null || Number.isNaN(impact) ? null : impact,
   };
 }
 

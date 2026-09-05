@@ -154,7 +154,7 @@ export function fixtureTimeline(now: Date): { projectId: string; fact: ChainFact
   }));
   push('proj-neural', fact(neural, {
     ...N(11, 7), kind: 'sell-simulation',
-    payload: { executable: true, method: 'fixture', inputAmount: '10000000000000000', outAmount: '1500000000', priceImpactPct: 0.012, buy: { executable: true, outAmount: '9900000000000000', priceImpactPct: 0.014 }, detail: 'Sell+buy routes exist via Raydium, impact 1.2%/1.4%' },
+    payload: { method: 'fixture', inputAmount: '10000000000000000', outAmount: '1500000000', priceImpactPct: 0.012, buy: { outAmount: '9900000000000000', priceImpactPct: 0.014 }, detail: 'Sell+buy routes exist via Raydium, impact 1.2%/1.4%' },
   }));
   push('proj-neural', fact(neural, {
     ...N(11, 8), kind: 'program-verification',
@@ -193,7 +193,7 @@ export function fixtureTimeline(now: Date): { projectId: string; fact: ChainFact
   }));
   push('proj-llm-lab', fact(llml, {
     ...L(11, 23), kind: 'sell-simulation',
-    payload: { executable: true, method: 'fixture', inputAmount: '5000000000000000', outAmount: '820000000', priceImpactPct: 0.031, buy: { executable: true, outAmount: '4940000000000000', priceImpactPct: 0.028 }, detail: 'Sell+buy routes exist via Orca, impact 3.1%/2.8%' },
+    payload: { method: 'fixture', inputAmount: '5000000000000000', outAmount: '820000000', priceImpactPct: 0.031, buy: { outAmount: '4940000000000000', priceImpactPct: 0.028 }, detail: 'Sell+buy routes exist via Orca, impact 3.1%/2.8%' },
   }));
   push('proj-llm-lab', fact(llml, {
     ...L(10, 25), kind: 'related-wallets',
@@ -224,7 +224,7 @@ export function fixtureTimeline(now: Date): { projectId: string; fact: ChainFact
   }));
   push('proj-rocket', fact(rckt, {
     ...R(8, 33), kind: 'sell-simulation',
-    payload: { executable: true, method: 'fixture', inputAmount: '10000000000000', outAmount: '21000000000', priceImpactPct: 0.021, buy: { executable: true, outAmount: '9800000000000', priceImpactPct: 0.018 }, detail: 'Sell+buy routes exist, impact 2.1%/1.8%' },
+    payload: { method: 'fixture', inputAmount: '10000000000000', outAmount: '21000000000', priceImpactPct: 0.021, buy: { outAmount: '9800000000000', priceImpactPct: 0.018 }, detail: 'Sell+buy routes exist, impact 2.1%/1.8%' },
   }));
   push('proj-rocket', fact(rckt, {
     ...R(8, 35), kind: 'related-wallets',
@@ -263,7 +263,7 @@ export function fixtureTimeline(now: Date): { projectId: string; fact: ChainFact
   }));
   push('proj-honeypot', fact(smy, {
     ...S(6, 43), kind: 'sell-simulation',
-    payload: { executable: false, method: 'fixture', inputAmount: '10000000000000000', outAmount: null, priceImpactPct: null, buy: { executable: true, outAmount: '10100000000000000', priceImpactPct: 0.009 }, detail: 'Buy route exists but no sell route for standard size — cannot exit' },
+    payload: { method: 'fixture', inputAmount: '10000000000000000', outAmount: null, priceImpactPct: null, buy: { outAmount: '10100000000000000', priceImpactPct: 0.009 }, detail: 'Buy route exists but no sell route for standard size — cannot exit' },
   }));
   push('proj-honeypot', fact(smy, {
     ...S(6, 45), kind: 'related-wallets',

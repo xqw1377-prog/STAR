@@ -61,10 +61,10 @@ describe.skipIf(!run)('solana-rpc provider (live mainnet, engineering smoke)', (
   it('quote endpoints respond for standard sell AND buy sizes (read-only probes, NOT tradability proof)', async () => {
     const fact = assertFact(await provider.sellSimulation(BONK));
     expect(fact.payload.method).toBe('jupiter-quote');
-    expect(fact.payload.executable).toBe(true);
+    expect(fact.payload.outAmount).toBeTruthy();
     expect(fact.payload.outAmount).not.toBeNull();
     expect(fact.payload.buy).not.toBeNull();
-    expect(fact.payload.buy!.executable).toBe(true);
+    expect(fact.payload.buy!.priceImpactPct).not.toBeNull();
   }, 60000);
 
   it('relatedWallets honestly throws (cluster analysis needs wallet graph) → gate UNKNOWN', async () => {

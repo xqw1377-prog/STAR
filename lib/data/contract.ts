@@ -12,7 +12,7 @@
  */
 
 /** Unique observation contract (D2). Gate interpretation is `star-web/lib/domain`. */
-export const CONTRACT_VERSION = 'solana-readonly@3' as const;
+export const CONTRACT_VERSION = 'solana-readonly@4' as const;
 
 /**
  * M1 market-fact contract. Distinct from the frozen research union
@@ -78,20 +78,24 @@ export interface LiquidityPayload {
 }
 
 /**
- * Buy/sell simulation (可买可卖). Executable means: a read-only route quote
- * for trading a standard size existed at observedAt with price impact under
- * threshold. Both legs are required by GATE-002; a missing leg is UNKNOWN,
- * never assumed. No wallet, no signature, no state change.
+ * Buy/sell simulation (可买可卖) — RAW OBSERVATIONS ONLY.
+ *
+ * solana-readonly@4 (F2-A contract change, principal-approved 2026-09-05):
+ * the adapter-verdict fields `executable` / `buy.executable` are REMOVED —
+ * they carried an ungoverned 5% threshold ruling with no contract standing
+ * (D1: E-01 ≥80% + ≤15% is the sole governance source). priceImpactPct
+ * stays a raw fact; tradability interpretation belongs to the governed
+ * E-01 interpreter (F2-B, not yet authorized) — until it exists the gate
+ * reads UNKNOWN (fail-closed interregnum, by ruling). No wallet, no
+ * signature, no state change.
  */
 export interface SellSimulationPayload {
-  executable: boolean;
   method: 'jupiter-quote' | 'fixture';
   inputAmount: string;
   outAmount: string | null;
   priceImpactPct: number | null;
-  /** Buy leg (quote WSOL → token). Absent on @1 evidence → check UNKNOWN. */
+  /** Buy leg (quote WSOL → token). Absent → check UNKNOWN. */
   buy?: {
-    executable: boolean;
     outAmount: string | null;
     priceImpactPct: number | null;
   } | null;
@@ -172,9 +176,6 @@ export function assertFact<K extends FactKind>(fact: ChainFact<K>): ChainFact<K>
 }
 
 function assertPayload(kind: FactKind, payload: Record<string, unknown>, fail: (why: string) => never): void {
-  if (kind === 'sell-simulation') {
-    if (typeof payload.executable !== 'boolean') fail('sell.executable required');
-  }
   if (kind === 'related-wallets') {
     if (typeof payload.graphIngested !== 'boolean') fail('related-wallets.graphIngested required');
     if (typeof payload.clusterPct !== 'number') fail('related-wallets.clusterPct required');

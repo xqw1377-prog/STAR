@@ -71,11 +71,9 @@ describe('interpretCheck — liquidity exit depth', () => {
 });
 
 describe('interpretCheck — tradability impact', () => {
-  it('UNKNOWN when sell claims executable but impact is missing', () => {
-    expect(interpretCheck('sell-simulation', { executable: true, buy: { executable: true, priceImpactPct: 0.01 } }).status).toBe('UNKNOWN');
-  });
-  it('FAIL when sell path is proven not executable', () => {
-    expect(interpretCheck('sell-simulation', { executable: false, detail: 'no route' }).status).toBe('FAIL');
+  it('F2-A interregnum: UNKNOWN regardless of raw impact — E-01 interpreter not authorized', () => {
+    expect(interpretCheck('sell-simulation', { priceImpactPct: 0.01, buy: { priceImpactPct: 0.01 } }).status).toBe('UNKNOWN');
+    expect(interpretCheck('sell-simulation', { priceImpactPct: 0.4, buy: { priceImpactPct: 0.4 } }).status).toBe('UNKNOWN');
   });
 });
 

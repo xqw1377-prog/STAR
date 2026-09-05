@@ -27,18 +27,17 @@ export function tokenUnresolved() {
 
 export function sellOk() {
   return {
-    executable: true,
     method: 'fixture' as const,
     inputAmount: '1000000',
     outAmount: '900000',
     priceImpactPct: 0.01,
-    buy: { executable: true, outAmount: '1000000', priceImpactPct: 0.01 },
+    buy: { outAmount: '1000000', priceImpactPct: 0.01 },
     detail: 'ok',
   };
 }
 
 export function sellBlocked() {
-  return { ...sellOk(), executable: false, detail: 'honeypot' };
+  return { ...sellOk(), detail: 'honeypot' };
 }
 
 export function sellNoImpact() {
