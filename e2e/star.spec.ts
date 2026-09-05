@@ -31,7 +31,7 @@ test.describe('six-page render + safety labels', () => {
     await expect(page.getByText('阻击台').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('snipe-value-meme@v0').first()).toBeVisible();
     await expect(page.getByText('DRY_RUN').first()).toBeVisible();
-    await expect(page.getByText('组合净值').first()).toBeVisible();
+    await expect(page.getByText('模拟账面余额').first()).toBeVisible();
   });
 
   test('replay lab evaluates a point-in-time cutoff', async ({ page }) => {
@@ -85,7 +85,7 @@ test('capability and snipe APIs stay aligned', async ({ request }) => {
   const cap = await request.get('/api/capability');
   expect(cap.status()).toBe(200);
   const ledger = await cap.json();
-  expect(ledger.id).toBe('star-capability@6');
+  expect(ledger.id).toBe('star-capability@7');
   expect(ledger.purpose).toBe('EARLY-MARKET-RESPONSE');
   expect(ledger.activeUniverse).toBe('U-01-SOLANA');
   expect(ledger.universeClass).toBe('U-01');
