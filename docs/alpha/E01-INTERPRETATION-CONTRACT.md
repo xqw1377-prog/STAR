@@ -85,7 +85,7 @@ Candidate N ──┤            FAIL          │
 | 2 | Pricing leg ≥80% | SELL 主动约束（`5(R_q−Δq) ≥ 4R_q`）；BUY 数学恒真 | B3.3:364 · D-03 |
 | 3 | 计算对象 | 双约束上界取 min 的最大 USDC 名义 N；SOL 报价经规范池换算 | B3.3:362-363 · E-02:359 |
 | 4 | 输入 facts | 点时储备、链上费率、曲线参数、换算价、Token 扩展/转账限制；聚合器冲击永不为 E-01 基准 | B3.2 · E-03:354 |
-| 5 | 门禁输出 | `N≥intended→PASS`；`N=0→FAIL`；缺输入→UNKNOWN；**`0<N<intended→未定义，禁止实现层自行映射`** | B3.3:367-369 · **GAP-01** |
+| 5 | 门禁输出 | `N≥intended→PASS`；`N=0→FAIL`；缺输入→UNKNOWN；`0<N<intended→PARTIAL`（GAP-01 裁决→gates@4） | B3.3:367-369 · GAP-01 CLOSED · gates@4 FROZEN |
 | 6 | 缺失输入 | 一律不计算→UNKNOWN；NO_POINT_IN_TIME_BOOK 归 UNKNOWN 族；禁止补价/外推 | B3:305 · B3.1:328 |
 | 7 | 超冲击关系 | 冲击约束用于**收缩 N**，不直接 FAIL；仅 `N=0` 进 FAIL；部分区间的门禁表达待 GAP-01 裁决 | B3.3:367-368 · **GAP-01** |
 | 8 | 固定探针 | **仅允许作为 Observation 保留；不得产生 executable；不得作为 E-01 输入；不得改变解释结果** | D-05 |
@@ -99,6 +99,7 @@ Candidate N ──┤            FAIL          │
 ```text
 D-02 CLOSED  冲击不含费（Impact ≠ Total Execution Cost）
 D-03 CLOSED  BUY 免 pricing leg = 约束的数学恒真（SELL: active / BUY: automatically satisfied）
+DQ-1 CLOSED  pump.fun reserve basis = REAL（主理人 2026-09-05 裁决；virtual 保留为描述性曲线状态证据，不作为治理储备依据）
 D-04 GAP     0<N<intended 的门禁状态 = GOVERNANCE_UNDEFINED（非新状态，是缺口）
 D-05 CLOSED  探针降级为 Observation；探针→E-01 路径彻底切断
 D-06 GAP     GATE-002 双腿 = historical/unresolved（无签署出处，不得凭历史代码升格）
@@ -109,10 +110,11 @@ D-08 CLOSED  授权顺序：解释合同冻结 → 储备解析器授权 → Int
 ## 五、治理缺口登记（实现层禁区）
 
 ```text
-GAP-01  0 < executableNotional < intendedNotional 的 Gate 状态
-        —— 已签文本只定义了 N≥intended→PASS 与 N=0→FAIL；此区间无签署级定义。
-           实现约束：不得映射为 PASS / FAIL / UNKNOWN 任何一种；
-           不得因 E-05 存在 PARTIAL_FILL 而建立 PARTIAL_FILL→PASS 的等价。
+GAP-01  CLOSED（GCP-GAP-01 方案 1 + gates@4 FROZEN 2026-09-05）
+        → 0<N<intended = PARTIAL（第四门禁状态）
+        → PARTIAL ≠ PASS / FAIL / UNKNOWN / BLOCKED / PARTIAL_FILL
+        → score = null；readiness = RESEARCH_REQUIRED（状态映射而非策略行为）
+        → PARTIAL 不自动产生任何降仓/放行/重试行为
 
 GAP-02  BUY+SELL 双腿同时满足是否构成门禁级组合规则
         —— 未获签署级治理授权，当前不得实现（现存唯一引用为已删除的 @3 代码注释，
