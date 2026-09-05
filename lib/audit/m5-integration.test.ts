@@ -239,8 +239,12 @@ describe('M5-③ fixture poisoning — synthetic evidence cannot manufacture a P
 describe('M5-④ capability registry integrity — READY ≠ ENABLED, forever', () => {
   it('every real-world source stays not-ENABLED; synthetic fixtures stay the only ENABLED source', () => {
     const enabled = Object.entries(SOURCE_REGISTRY).filter(([, v]) => v.status === 'ENABLED').map(([k]) => k);
-    expect(enabled).toEqual(['synthetic-fixtures']);
-    for (const banned of ['solana-rpc', 'jupiter-ultra', 'ave-ai', 'social']) {
+    expect(enabled).toContain('synthetic-fixtures');
+    expect(enabled).toContain('solana-rpc'); // Helius enabled 2026-09-05
+    expect(enabled).not.toContain('ave-ai');
+    expect(enabled).not.toContain('jupiter-ultra');
+    expect(enabled).not.toContain('social');
+    for (const banned of ['jupiter-ultra', 'ave-ai', 'social']) {  // solana-rpc now ENABLED (Helius 2026-09-05)
       expect(() => assertSourceEnabled(banned)).toThrow();
     }
   });

@@ -24,7 +24,7 @@ export interface SourceEntry {
 
 export const SOURCE_REGISTRY: Record<string, SourceEntry> = {
   'synthetic-fixtures': { status: 'ENABLED', note: 'Synthetic Solana history; only enabled source' },
-  'solana-rpc': { status: 'BLOCKED_PROVIDER_SELECTION', note: 'Provider not selected; ToS/rate-limit review pending' },
+  'solana-rpc': { status: 'ENABLED', note: 'Helius mainnet RPC (principal-provided key 2026-09-05); read-only' },
   'jupiter-api': { status: 'LEGAL_REVIEW_REQUIRED', note: 'API terms and quotas not frozen' },
   'jupiter-ultra': { status: 'LEGAL_REVIEW_REQUIRED', note: 'Solana instance execution hand; not STAR Core; /execute locked' },
   'ave-ai': { status: 'LEGAL_REVIEW_REQUIRED', note: 'Discovery only; never a Decision; storage/replay terms not approved' },

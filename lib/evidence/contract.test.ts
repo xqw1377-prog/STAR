@@ -83,8 +83,10 @@ describe('evidence contract — fail-closed validation', () => {
   });
 
   it('rejects sources that are not ENABLED in the registry', () => {
-    expect(() => assertEvidence(fixture({ source: 'solana-rpc' }))).toThrow(/not ENABLED/);
+    // solana-rpc is now ENABLED (Helius, 2026-09-05) — use other blocked sources
     expect(() => assertEvidence(fixture({ source: 'ave-ai' }))).toThrow(/not ENABLED/);
+    expect(() => assertEvidence(fixture({ source: 'jupiter-ultra' }))).toThrow(/not ENABLED/);
+    expect(() => assertEvidence(fixture({ source: 'social' }))).toThrow(/not ENABLED/);
   });
 
   it('rejects out-of-range confidence and missing ids', () => {

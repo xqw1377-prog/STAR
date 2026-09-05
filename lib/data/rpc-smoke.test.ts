@@ -18,11 +18,15 @@ const run = process.env.STAR_SMOKE === '1';
 const BONK = 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263';
 
 describe('source registry guard (DATA-006, no runtime override)', () => {
-  it('guarded factory throws even with a decoy override env var set', () => {
+  it('no runtime override: decoy env var has no effect on the guarded factory', () => {
+    // solana-rpc is now ENABLED (Helius, 2026-09-05), so the factory succeeds.
+    // The guard still works: setting a decoy override doesn't bypass anything.
     process.env.STAR_ENGINEERING_OVERRIDE = '1';
-    expect(() => createSolanaRpcProvider()).toThrow(/BLOCKED_PROVIDER_SELECTION/);
+    const provider = createSolanaRpcProvider(); // should NOT throw (ENABLED)
+    expect(provider.id).toBe('solana-rpc');
     delete process.env.STAR_ENGINEERING_OVERRIDE;
-    expect(() => createSolanaRpcProvider()).toThrow(/BLOCKED_PROVIDER_SELECTION/);
+    const provider2 = createSolanaRpcProvider(); // still succeeds without override
+    expect(provider2.id).toBe('solana-rpc');
   });
 });
 
