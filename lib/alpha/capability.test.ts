@@ -34,6 +34,13 @@ describe('capability alignment', () => {
     expect(CAPABILITY.runtime.m1.realSensor).toBe(false);
     expect(CAPABILITY.runtime.m1.realRpc).toBe(false);
     expect(CAPABILITY.runtime.m1.b2Authorized).toBe(false);
+    expect(CAPABILITY.runtime.m2.engine).toBe('star-actor@1');
+    expect(CAPABILITY.runtime.m2.emitsRiskScore).toBe(false);
+    expect(CAPABILITY.runtime.m2.wiredToRuntime).toBe(false);
+    expect(CAPABILITY.runtime.m3.engine).toBe('star-tokenrisk@1');
+    expect(CAPABILITY.runtime.m3.emitsRiskScore).toBe(false);
+    expect(CAPABILITY.runtime.m4.engine).toBe('star-eventintel@1');
+    expect(CAPABILITY.runtime.m4.narrativeIdentity).toBe(false);
     expect(capabilityPublic().runtime.executionMode).toBe(resolveExecutionMode());
     expect(capabilityPublic().runtime.executionDefault).toBe('DRY_RUN');
   });

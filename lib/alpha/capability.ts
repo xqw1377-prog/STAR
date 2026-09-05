@@ -60,6 +60,28 @@ export const CAPABILITY = {
       realRpc: false,
       b2Authorized: false,
     },
+    m2: {
+      engine: 'star-actor@1',
+      /** Pure evidence organs — emit M0-contract records, no DB writes, no risk scores. */
+      status: 'READY-FIXTURE-ONLY',
+      emitsEvidence: true,
+      emitsRiskScore: false,
+      wiredToRuntime: false,
+    },
+    m3: {
+      engine: 'star-tokenrisk@1',
+      status: 'READY-FIXTURE-ONLY',
+      emitsEvidence: true,
+      emitsRiskScore: false,
+      wiredToRuntime: false,
+    },
+    m4: {
+      engine: 'star-eventintel@1',
+      status: 'READY-FIXTURE-ONLY',
+      emitsEvidence: true,
+      narrativeIdentity: false,
+      wiredToRuntime: false,
+    },
     strategy: SNIPE_STRATEGY_ID,
     autoTrade: true,
     executionDefault: 'DRY_RUN',

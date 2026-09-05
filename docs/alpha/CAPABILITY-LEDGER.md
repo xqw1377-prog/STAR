@@ -35,3 +35,12 @@ B2                未授权启动
 输出              仅 Observation——永不 Evidence Truth / Gate / Score / Decision
 真实 RPC          false（下一闸门：Provider→Adapter Review→Read-only→Sensor 验证→B2 独立授权）
 ```
+
+## M2/M3/M4 能力器官（@7 新增，纯计算层，同日落地）
+
+```text
+M2 star-actor@1        资金图/集群/早期买家/新钱包 → Evidence（Cluster ≠ Risk，零风险分）
+M3 star-tokenrisk@1    字节级 SPL/Token-2022/ProgramData 解码 → Evidence（无裁决字段）
+M4 star-eventintel@1   事件指纹/跨源聚类/叙事候选（候选永不是身份，零门禁资格）
+共同约束              不写库 · 不接运行时 · 不产评分 · 源注册表 fail-closed · 全部经 M0 契约校验
+```
