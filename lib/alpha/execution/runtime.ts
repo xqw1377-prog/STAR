@@ -11,6 +11,8 @@ import { STAR_LOOP } from '@/lib/alpha/layers';
 import { composeEarlySignals } from '@/lib/alpha/radar/compose';
 import { fixtureNarrativeAdapter } from '@/lib/alpha/narrative/fixture';
 import { solanaLaunchAdapter } from '@/lib/alpha/markets/solana/adapter';
+import { decideSignal, type SignalSkip } from '@/lib/alpha/core/decide';
+import { decideExit, type ExitThesis } from '@/lib/alpha/exit/engine';
 import type { EarlySignal } from '@/lib/alpha/core/signal';
 
 export interface SnipeRuntimeSnapshot {
@@ -30,6 +32,10 @@ export interface SnipeRuntimeSnapshot {
   open: OpenPosition[];
   trades: CycleTrade[];
   signals: EarlySignal[];
+  /** Decision-explanation layer: each candidate with its live verdict (why in / why out). */
+  pool: Array<{ signal: EarlySignal; verdict: { enter: boolean; reason?: SignalSkip; notionalUsdc?: number } }>;
+  /** Exit layer: live exit thesis per held position (HOLD/EXIT + why) + current reserve for display. */
+  exitTheses: Array<{ mint: string; reserveSol: number | null; exit: ExitThesis }>;
   lastTickAt: string | null;
 }
 
@@ -67,6 +73,21 @@ export function resetSnipeRuntime(): void {
 }
 
 export function snapshotSnipeRuntime(): SnipeRuntimeSnapshot {
+  const signals = currentSignals();
+  const pool = signals.map((signal) => {
+    const verdict = decideSignal(signal, open, solanaLaunchAdapter.policy);
+    return verdict.enter
+      ? { signal, verdict: { enter: true, notionalUsdc: verdict.notionalUsdc } as const }
+      : { signal, verdict: { enter: false, reason: verdict.reason } as const };
+  });
+  const exitTheses = open.map((p) => {
+    const book = books.find((b) => b.mint === p.mint);
+    return {
+      mint: p.mint,
+      reserveSol: book ? book.quoteReserveSol : null,
+      exit: decideExit(p, book, decisionSlot, false),
+    };
+  });
   return {
     purpose: CAPABILITY.purpose,
     product: CAPABILITY.product,
@@ -83,7 +104,9 @@ export function snapshotSnipeRuntime(): SnipeRuntimeSnapshot {
     navUsdc: navUsdc(),
     open: [...open],
     trades: [...trades],
-    signals: currentSignals(),
+    signals,
+    pool,
+    exitTheses,
     lastTickAt,
   };
 }
