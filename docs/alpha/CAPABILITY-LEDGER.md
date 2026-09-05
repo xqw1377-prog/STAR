@@ -44,3 +44,16 @@ M3 star-tokenrisk@1    字节级 SPL/Token-2022/ProgramData 解码 → Evidence�
 M4 star-eventintel@1   事件指纹/跨源聚类/叙事候选（候选永不是身份，零门禁资格）
 共同约束              不写库 · 不接运行时 · 不产评分 · 源注册表 fail-closed · 全部经 M0 契约校验
 ```
+
+## M5 集成与治理审计（@7 新增，2026-09-05 通过）
+
+```text
+审计器              m5-integration@1 · PASSED-FIXTURE-SCOPE
+① provenance        Source→Adapter→Observation→Computation→Evidence 全链无断点
+② 跨器官泄漏        器官→Gate / M4→Narrative·Lifecycle / M1→Truth / Asset→Event→Narrative 全部禁径成立
+③ 夹具投毒          「完美伪造」证据经真实门禁解释器只得 UNKNOWN（truth 层载荷形状缺失即 fail-closed）；
+                    evidence→gate 翻译层不存在——该缺失即 B2 治理闸门本体
+④ 注册表完整性      READY ≠ ENABLED 永久规则（测试锁定）；synthetic-fixtures 仍为唯一 ENABLED 源
+Dashboard           所有权裁决执行：/ = 阻击决策台（单一主人）；复用 site-navigation 与 lib/ui/dashboard；
+                    并行在途首页及 e2e 隔离于 /tmp/star-dashboard-quarantine（未采纳未销毁）
+```

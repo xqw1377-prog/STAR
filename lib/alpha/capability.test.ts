@@ -41,6 +41,10 @@ describe('capability alignment', () => {
     expect(CAPABILITY.runtime.m3.emitsRiskScore).toBe(false);
     expect(CAPABILITY.runtime.m4.engine).toBe('star-eventintel@1');
     expect(CAPABILITY.runtime.m4.narrativeIdentity).toBe(false);
+    expect(CAPABILITY.runtime.m5.audit).toBe('m5-integration@1');
+    expect(CAPABILITY.runtime.m5.status).toBe('PASSED-FIXTURE-SCOPE');
+    expect(CAPABILITY.runtime.m5.realRpc).toBe(false);
+    expect(CAPABILITY.runtime.m5.b2Authorized).toBe(false);
     expect(capabilityPublic().runtime.executionMode).toBe(resolveExecutionMode());
     expect(capabilityPublic().runtime.executionDefault).toBe('DRY_RUN');
   });

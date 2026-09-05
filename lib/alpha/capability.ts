@@ -82,6 +82,13 @@ export const CAPABILITY = {
       narrativeIdentity: false,
       wiredToRuntime: false,
     },
+    m5: {
+      audit: 'm5-integration@1',
+      /** Integration & governance audit PASSED at fixture scope (2026-09-05): provenance, leakage, poisoning, registry. */
+      status: 'PASSED-FIXTURE-SCOPE',
+      realRpc: false,
+      b2Authorized: false,
+    },
     strategy: SNIPE_STRATEGY_ID,
     autoTrade: true,
     executionDefault: 'DRY_RUN',
