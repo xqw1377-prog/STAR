@@ -49,7 +49,8 @@ Lifecycle 与 Decision Path 不属于六门禁，维持模型 FROZEN-rev1 口径
 
 ```text
 M0 Evidence Contract   ← 已落地：lib/evidence/contract.ts（本矩阵的机器可读形态）
-M1 Chain Observation   吸收 realtime-indexer 架构（checkpoint/gap/replay/DLQ）· fixture+replay 验证
+M1 Chain Observation   ← 已落地：lib/observation/（star-observation@1，READY-FIXTURE-REPLAY-ONLY；
+                          单一管道 live/replay 等价、原子检查点、显式缺口、死信、验证器、十项验收全绿）
 M2 Actor Evidence      funding graph / cluster / early buyer / fresh wallet —— 全部输出 Evidence，不输出风险分
 M3 Token/Program       吸收 rugcheck-skill raw inspection → 三类证据映射三门禁
 M4 Event Intelligence  AlphaRidge schema 最后接入（Event→Narrative 方向，禁止反向）

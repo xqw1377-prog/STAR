@@ -22,3 +22,16 @@ Decision Core     不可触达（代码边界 + DB 触发器 + 写面测试三�
 写面              仅五张 b1_* append-only 表；关系方向 Event→Narrative→Asset 单向
 B2                未授权启动
 ```
+
+## M1 链上观察层（@7 新增，主理人授权 2026-09-05）
+
+```text
+观察器            star-observation@1
+状态              READY-FIXTURE-REPLAY-ONLY（M1 READY ≠ B2）
+管道              单一 runPipeline：decode→interpret→normalize→幂等→原子批次+检查点
+                  live / capture / replay 同管道（确定性测试锁定）
+可靠性            检查点与批次同事务 · 缺口显式记录（非 UNKNOWN 同义词）·
+                  缺口回填 · 死信全上下文 · 验证器 · append-only 触发器
+输出              仅 Observation——永不 Evidence Truth / Gate / Score / Decision
+真实 RPC          false（下一闸门：Provider→Adapter Review→Read-only→Sensor 验证→B2 独立授权）
+```

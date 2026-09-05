@@ -12,7 +12,7 @@ describe('star_schema_version', () => {
     const { PGlite } = await import('@electric-sql/pglite');
     const db = new PGlite(dir);
     await db.waitReady;
-    const readSql = (name: 'init.sql' | 'init-d1.sql' | 'init-d1b.sql' | 'init-d1c.sql' | 'init-d1d.sql' | 'init-d1-triggers.sql' | 'init-b1.sql') =>
+    const readSql = (name: 'init.sql' | 'init-d1.sql' | 'init-d1b.sql' | 'init-d1c.sql' | 'init-d1d.sql' | 'init-d1-triggers.sql' | 'init-b1.sql' | 'init-m1.sql') =>
       readFile(join(process.cwd(), 'public', name), 'utf8');
     await ensureCoreAndD1(db, readSql);
     await ensureCoreAndD1(db, readSql);
@@ -29,7 +29,7 @@ describe('star_schema_version', () => {
     const schemaSrc = readFileSync(join(process.cwd(), 'db/schema.ts'), 'utf8');
     const tables = [...schemaSrc.matchAll(/pgTable\('([^']+)'/g)].map((m) => m[1]);
     const sql = [
-      'init.sql', 'init-d1.sql', 'init-d1b.sql', 'init-d1c.sql', 'init-d1d.sql', 'init-b1.sql',
+      'init.sql', 'init-d1.sql', 'init-d1b.sql', 'init-d1c.sql', 'init-d1d.sql', 'init-b1.sql', 'init-m1.sql',
     ].map((name) => readFileSync(join(process.cwd(), 'public', name), 'utf8')).join('\n')
       + '\nCREATE TABLE star_schema_version';
     const missing = tables.filter((name) => !sql.includes(`"${name}"`) && !sql.includes(`TABLE ${name}`) && !sql.includes(`TABLE "${name}"`));

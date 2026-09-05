@@ -52,6 +52,14 @@ export const CAPABILITY = {
       realSensor: false,
       decisionReachable: false,
     },
+    m1: {
+      observation: 'star-observation@1',
+      /** M1 READY = fixture/replay observation infrastructure verified; Real Sensor OFF (principal authorization 2026-09-05). */
+      status: 'READY-FIXTURE-REPLAY-ONLY',
+      realSensor: false,
+      realRpc: false,
+      b2Authorized: false,
+    },
     strategy: SNIPE_STRATEGY_ID,
     autoTrade: true,
     executionDefault: 'DRY_RUN',

@@ -421,3 +421,67 @@ export const b1Anchors = pgTable('b1_anchor', {
   payloadHash: text('payload_hash').notNull(),
   payload: jsonb('payload').notNull(),
 });
+
+// ── M1 Chain Observation (Acquisition Matrix V1) ──
+// Observations only — never Evidence Truth, never Gate/Score/Decision.
+// m1_observation / m1_dead_letter / m1_batch are append-only (DB triggers);
+// m1_checkpoint (watermark) and m1_gap (lifecycle) are mutable by design.
+
+export const m1Observations = pgTable('m1_observation', {
+  id: text('id').primaryKey(),
+  observationKey: text('observation_key').notNull().unique(),
+  sourceId: text('source_id').notNull(),
+  mode: text('mode').notNull(),
+  slot: integer('slot').notNull(),
+  signature: text('signature'),
+  instructionIndex: integer('instruction_index'),
+  kind: text('kind').notNull(),
+  rawHash: text('raw_hash').notNull(),
+  rawPayload: jsonb('raw_payload').notNull(),
+  normalized: jsonb('normalized').notNull(),
+  observedAt: timestamp('observed_at', { withTimezone: true, mode: 'date' }).notNull(),
+  ingestedAt: timestamp('ingested_at', { withTimezone: true, mode: 'date' }).notNull(),
+  batchId: text('batch_id').notNull(),
+});
+
+export const m1Checkpoint = pgTable('m1_checkpoint', {
+  id: integer('id').primaryKey(),
+  sourceId: text('source_id').notNull(),
+  highestFullyProcessedSlot: integer('highest_fully_processed_slot').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
+
+export const m1Gaps = pgTable('m1_gap', {
+  id: text('id').primaryKey(),
+  sourceId: text('source_id').notNull(),
+  fromSlot: integer('from_slot').notNull(),
+  toSlot: integer('to_slot').notNull(),
+  detectedAt: timestamp('detected_at', { withTimezone: true, mode: 'date' }).notNull(),
+  status: text('status').notNull(),
+  backfillBatchId: text('backfill_batch_id'),
+});
+
+export const m1DeadLetters = pgTable('m1_dead_letter', {
+  id: text('id').primaryKey(),
+  sourceId: text('source_id').notNull(),
+  slot: integer('slot'),
+  signature: text('signature'),
+  observationKey: text('observation_key'),
+  stage: text('stage').notNull(),
+  error: text('error').notNull(),
+  rawHash: text('raw_hash'),
+  rawPayload: jsonb('raw_payload').notNull(),
+  firstSeenAt: timestamp('first_seen_at', { withTimezone: true, mode: 'date' }).notNull(),
+  retryCount: integer('retry_count').notNull().default(0),
+});
+
+export const m1Batches = pgTable('m1_batch', {
+  id: text('id').primaryKey(),
+  sourceId: text('source_id').notNull(),
+  mode: text('mode').notNull(),
+  fromSlot: integer('from_slot').notNull(),
+  toSlot: integer('to_slot').notNull(),
+  observationCount: integer('observation_count').notNull(),
+  deadLetterCount: integer('dead_letter_count').notNull().default(0),
+  committedAt: timestamp('committed_at', { withTimezone: true, mode: 'date' }).notNull(),
+});
