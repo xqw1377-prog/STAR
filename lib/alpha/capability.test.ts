@@ -5,7 +5,7 @@ import { resolveExecutionMode } from './execution/mode';
 
 describe('capability alignment', () => {
   it('locks purpose, strategy, and live execution to the same objects', () => {
-    expect(CAPABILITY.id).toBe('star-capability@6');
+    expect(CAPABILITY.id).toBe('star-capability@7');
     expect(CAPABILITY.purpose).toBe('EARLY-MARKET-RESPONSE');
     expect(CAPABILITY.model).toBe('EVENT-NARRATIVE-ASSET-MARKET-MONEY');
     expect(CAPABILITY.portfolio).toBe('portfolio-policy@v1-convex');
@@ -25,6 +25,10 @@ describe('capability alignment', () => {
     expect(CAPABILITY.runtime.deskRequiresResearchDb).toBe(false);
     expect(CAPABILITY.runtime.broadcast).toBe(false);
     expect(CAPABILITY.runtime.walletModule).toBe(false);
+    expect(CAPABILITY.runtime.b1.recorder).toBe('b1-recorder@1');
+    expect(CAPABILITY.runtime.b1.status).toBe('ACTIVE-FIXTURE-ONLY');
+    expect(CAPABILITY.runtime.b1.realSensor).toBe(false);
+    expect(CAPABILITY.runtime.b1.decisionReachable).toBe(false);
     expect(capabilityPublic().runtime.executionMode).toBe(resolveExecutionMode());
     expect(capabilityPublic().runtime.executionDefault).toBe('DRY_RUN');
   });

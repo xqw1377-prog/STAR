@@ -7,7 +7,7 @@ import { STAR_LOOP, STAR_ROLES } from '@/lib/alpha/layers';
 import { jupiterExecuteAllowed } from '@/lib/alpha/execution/jupiter-ultra';
 import { MARKET_RADAR } from '@/lib/alpha/markets/registry';
 
-export const CAPABILITY_LEDGER_ID = 'star-capability@6' as const;
+export const CAPABILITY_LEDGER_ID = 'star-capability@7' as const;
 
 export const CAPABILITY = {
   id: CAPABILITY_LEDGER_ID,
@@ -39,11 +39,19 @@ export const CAPABILITY = {
     exit: { ...STAR_ROLES.exit, status: 'IN-PROGRESS' },
   },
   radar: MARKET_RADAR.boards,
+  operatingModel: 'CONSENSUS-OPERATING-MODEL FROZEN-rev1',
   runtime: {
     enabledSources: ['synthetic-fixtures'] as const,
     solanaRpc: 'BLOCKED',
     aveAi: 'LEGAL_REVIEW',
     jupiterUltra: 'LEGAL_REVIEW',
+    b1: {
+      recorder: 'b1-recorder@1',
+      /** B1-ACTIVE = Recording Active / Sensor OFF (principal ruling 2026-09-05). */
+      status: 'ACTIVE-FIXTURE-ONLY',
+      realSensor: false,
+      decisionReachable: false,
+    },
     strategy: SNIPE_STRATEGY_ID,
     autoTrade: true,
     executionDefault: 'DRY_RUN',

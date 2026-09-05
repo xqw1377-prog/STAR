@@ -8,4 +8,4 @@ STAR 是跨市场的**新叙事早期资产阻击引擎**：发现热点、寻�
 组合：`portfolio-policy@v1-convex`（高失误率可接受，单笔亏损封顶，不错过大赢家）  
 运行实例：`U-01-SOLANA`（验证场，不是产品边界）
 
-台账：`star-capability@6`。
+台账：`star-capability@7`。
