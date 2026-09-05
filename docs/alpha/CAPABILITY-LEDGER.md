@@ -34,6 +34,35 @@ DQ-1             virtual/real 双出（OPEN——选择权在 Interpreter）
 DQ-2             部分事实保留（CLOSED——消费者不得当完整 E-01 输入）
 ```
 
+## Provider Commercial Review（2026-09-05，主理人审查）
+
+```text
+Technical RPC access       PASS（Helius mainnet，slot 级响应已验证）
+Current pricing            ACCEPTABLE / REVIEWED（$49/10M Developer 档起步）
+ToS                        REVIEWED（2026-04-24 版：禁止未授权 sublicense/resale/transfer）
+Data-use rights            NOT YET EXPLICITLY CLEARED（内部分析用途未见禁止，但需正式 Legal sign-off）
+Redistribution rights      NOT CLEARED（未来如作为对外产品能力提供，需另行确认）
+Production authorization   NOT GRANTED
+
+Gate #1 = NO-GO
+Reason = Commercial/Legal sign-off pending
+```
+
+## DQ-1 Governance Decision Record（2026-09-05，主理人裁决）
+
+```text
+Question   pump.fun curve pools: which reserve basis is governance-authorized
+           for E-01 sellability / reserve interpretation?
+Decision   REAL
+Rule       real_sol / real_token reserves = governance-authorized reserve basis.
+           virtual_sol / virtual_token = descriptive curve-state evidence only;
+           must not independently satisfy governance reserve criteria.
+Status     CLOSED
+Impact     E-01 may consume authorized real-reserve fields.
+           Virtual reserve fields remain non-authoritative for governed decisions.
+           Implementation authorization pending (separate gate).
+```
+
 ## M1 链上观察层（@7 新增，主理人授权 2026-09-05）
 
 ```text
